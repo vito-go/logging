@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unilog Search</title>
+    <style>
+        /*谷歌*/
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+        }
+
+        /*火狐*/
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .tidipt {
+            margin-top: 20px;
+            width: 350px;
+            font-size: 22px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .search {
+            padding-left: 20%;
+        }
+
+        .log {
+            height: calc(100% - 150px);
+            /* white-space:pre; */
+            background-color: black;
+            color: whitesmoke;
+            font-family: monospace;
+            font-size: 16px;
+            position: absolute;
+            overflow-y: auto;
+            width: calc(100% - 50px);
+            min-width: 50%;
+            padding: 20px;
+            line-height: 24px;
+            scroll-behavior: smooth;
+            word-break: break-all;
+        }
+    </style>
+
+</head>
+
+<body>
+<div class="search">
+    <span id="appNames">
+    </span>
+    <input class="tidipt" type="search" name="" id="tidipt" required placeholder="请输入tid" oninput="showTime()">
+    <button style="font-size: 19px;border-radius: 5px;cursor: pointer;color: darkcyan;" onclick="getLogByTid()">查询
+    </button>
+    <span id="tt" style="color: darkcyan;font-size: 20px;margin-left: 10px;"></span>
+</div>
+<p></p>
+<div id="log" style="font-size: 18px" class="log"></div>
+<script>
+    var tidipt = document.getElementById("tidipt")
+    var tt = document.getElementById("tt")
+    var container = document.getElementById("log")
+
+    // 获取指定名称的cookie
+    function getCookie(name) {
+        var strcookie = document.cookie;//获取cookie字符串
+        var arrcookie = strcookie.split("; ");//分割
+        //遍历匹配
+        for (var i = 0; i < arrcookie.length; i++) {
+            var arr = arrcookie[i].split("=");
+            if (arr[0] === name) {
+                return arr[1];
+            }
+        }
+        return "";
+    }
+
+    function colorLogLevel(tag) {
+        tag.innerHTML = tag.innerHTML.replace(/"tid"/g, "\"<span style='color: darkcyan; '>tid</span>\"")
+        tag.innerHTML = tag.innerHTML.replace(/tid:/g, "<span style='color: darkcyan; '>tid:</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[INFO\]/g, "<span style='color: lawngreen; font-weight: bolder'>$&</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[WARN\]/g, "<span style='color: orange; font-weight: bolder'>$&</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[ERROR\]/g, "<span style='color: red; font-weight: bolder'>$&</span>")
+
+        tag.innerHTML = tag.innerHTML.replace(/\[info\]/g, "<span style='color: lawngreen; font-weight: bolder'>$&</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[warn\]/g, "<span style='color: orange; font-weight: bolder'>$&</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[error\]/g, "<span style='color: red; font-weight: bolder'>$&</span>")
+    }
+
+    function getAppName() {
+        var appNames = document.getElementsByName("appName")
+        for (let i = 0; i < appNames.length; i++) {
+            if (appNames[i].checked) {
+                return appNames[i].value
+            }
+        }
+        return ""
+    }
+
+    function getLogByTid() {
+        container.innerHTML = ""
+        var tid = tidipt.value
+        if (tid === "") {
+            alert("tid不能为空")
+            return
+        }
+        let appName = getAppName()
+        if (appName === "") {
+            alert("请选择集群服务名称")
+            return
+        }
+        var xhr = new XMLHttpRequest()
+        xhr.open("POST", "/universe/api/v1/im/unilog")
+        var fm = new FormData()
+        fm.set("tid", tid)
+        fm.set("appName", appName)
+        fm.set("token", getCookie("token"))
+        xhr.send(fm)
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var obj = JSON.parse(xhr.responseText)
+                        for (let i = 0; i < obj.length; i++) {
+                            let tag = document.createElement("p")
+                            tag.innerText = obj[i]
+                            colorLogLevel(tag)
+                            container.appendChild(tag)
+                        }
+                    } catch (error) {
+                        container.innerHTML = xhr.responseText
+                    }
+
+                }
+            }
+        }
+
+    }
+
+    function alertIsNan() {
+        let val = tidipt.value
+        if (val === "") {
+            return
+        }
+        let result = val.match(new RegExp("^[0-9]+$"));
+        if (result == null) {
+            alert("tid必须为数字")
+            tidipt.value = ""
+        }
+    }
+
+    function showTime() {
+        alertIsNan()
+        if (tidipt.value / 1000000 === 0) {
+            tt.innerText = ""
+            container.innerHTML = ""
+            return
+        }
+        var t = new Date(tidipt.value / 1000000)
+        tt.innerText = t.toLocaleString()
+        console.log(t.toISOString())
+    }
+
+    function showAppName(appNames) {
+        var appNamesTag = document.getElementById("appNames")
+        for (let i = 0; i < appNames.length; i++) {
+            let label = document.createElement("label")
+            if (appNames[i].length > 1) {
+                label.innerHTML = "&nbsp; " + appNames[i].charAt(0).toUpperCase() + appNames[i].slice(1)
+            } else {
+                label.innerHTML = "&nbsp; " + appNames[i]
+            }
+            let inputTag = document.createElement("input")
+            inputTag.name = "appName"
+            inputTag.type = "radio"
+            inputTag.value = appNames[i]
+            label.appendChild(inputTag)
+            appNamesTag.appendChild(label)
+        }
+    }
+
+    showAppName('{{appNameList}}')
+</script>
+</body>
+
+</html>

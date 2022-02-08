@@ -1,0 +1,141 @@
+package logging
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/vito-go/mylog"
+
+	"github.com/vito-go/logging/tid"
+)
+
+// logTidLength限定对进的tid数量.
+const logTidLength = 1 << 20
+
+// tidDelay  延迟2秒采集一次
+const tidDelay = time.Second * 2
+
+// _logList 全局tid搜索链表.
+var _logList = newLogList(logTidLength)
+
+// GoRunTidSearch tid搜索引擎服务. 这里一定要传logPath而不是和日志相同的文件句柄*os.File
+func GoRunTidSearch(logPath string, tidPattern string) {
+	go func() {
+		err := runTidSearch(logPath, tidPattern)
+		if err != nil {
+			log.Printf("tid search run error. server exit. err=%s\n", err.Error())
+		}
+	}()
+}
+
+// runTidSearch tid搜索引擎服务. 这里一定要传logPath而不是和日志相同的文件句柄*os.File
+func runTidSearch(logPath string, tidPattern string) error {
+	f, err := os.Open(logPath)
+	if err != nil {
+		return fmt.Errorf("tid搜索服务启动失败! err: %s", err.Error())
+	}
+	var offset int64
+	n := readToLogList(offset, tidPattern, f)
+	offset += n
+	var b []byte
+	for {
+		b, err = readAllByOffset(f, offset)
+		if err != nil {
+			return err
+		}
+		if len(b) == 0 {
+			time.Sleep(tidDelay)
+			continue
+		}
+		readToLogList(offset, tidPattern, bytes.NewReader(b))
+		offset += int64(len(b))
+	}
+}
+
+// readToLogList  tidPattern `"tid":(\d+)`
+func readToLogList(offset int64, tidPattern string, reader io.Reader) (n int64) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 1<<10), maxScanTokenSize)
+	for scanner.Scan() {
+		a := offset
+		line := scanner.Text()
+		offset += int64(len(line)) + 1
+		reg := regexp.MustCompile(tidPattern)
+		result := reg.FindAllStringSubmatch(line, 1)
+		var tidStr string
+		if len(result) == 0 {
+			continue
+		}
+		tidStr = result[0][1]
+		tidInt, _ := strconv.ParseInt(tidStr, 10, 64)
+		b := offset
+		_logList.Insert(tidInt, offsetAB{A: a, B: b})
+	}
+	if err := scanner.Err(); err != nil {
+		mylog.Ctx(context.Background()).Errorf("tid搜索引擎服务发生严重错误,请立即修复! ", err.Error())
+	}
+	n = offset // 明确n的含义, 代表一共读取了多少个字节
+	return n
+}
+
+// TidSearch 提供一个包含html页面的tid搜索服务.
+func (lc *logClient) TidSearch(ctx *gin.Context) {
+	ctx.Set("tid", tid.Get())
+	method := ctx.Request.Method
+	switch method {
+	case http.MethodGet, http.MethodPost:
+	default:
+		ctx.Writer.WriteHeader(http.StatusForbidden)
+		return
+	}
+	if ctx.Request.Method != "POST" {
+		if !isLogin(ctx.Request, cookieKey, lc.token) {
+			r := strings.NewReplacer("{{jumpPath}}", lc.tieSearchPath, "{{loginPath}}", lc.loginPath)
+			ctx.Writer.WriteString(r.Replace(loginHtml))
+			return
+		}
+		ctx.Writer.WriteString(strings.ReplaceAll(tidHtml, "{{tieSearchPath}}", lc.tieSearchPath))
+		return
+	}
+
+	// post 请求获取日志
+	tidStr := ctx.PostForm("tid")
+	tidInt, err := strconv.ParseInt(tidStr, 10, 64)
+	if err != nil || tidInt <= 0 {
+		ctx.Writer.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	var nd *node
+	var nodeExist bool
+
+	nd, nodeExist = _logList.Find(tidInt)
+	if !nodeExist {
+		ctx.Writer.WriteString(`<h1>no result</h1>`)
+		return
+	}
+	var result []string
+	abS := nd.OffsetABs()
+	for _, ab := range abS {
+		bb, err := readByOffsetAB(lc.tidSearchFile, ab.A, ab.B)
+		if err != nil {
+			ctx.Writer.WriteString(fmt.Sprintf("readByOffsetAB tid=%d offset=%+v  error: %s", tidInt, ab, err.Error()))
+			return
+		}
+		result = append(result, string(bb))
+	}
+	b, _ := json.Marshal(result)
+	ctx.Writer.Write(b)
+}
