@@ -97,10 +97,10 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 	}()
 }
 
-// protocol 协议   端口号协议： lsh:<portCode>
-const protocol = "lsh:"
-
 func checkAndGetPort(conn net.Conn) (uint32, error) {
+	// protocol 协议   端口号协议： lsh:<portCode>
+	const protocol = "lsh:"
+
 	buf := make([]byte, 8) // 获取端口号
 	_, err := io.ReadFull(conn, buf)
 	if err != nil {

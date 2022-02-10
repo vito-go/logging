@@ -6,7 +6,7 @@
 - 支持反向代理日志节点
 
 ### 项目结构示意图
-<img src="images/logging.png">
+![avatar](images/logging.png)
 
 ### API
 - Init:   通用的初始化方式, http服务启动前进行调用。
@@ -71,12 +71,12 @@ go run ./main.go
 > http://127.0.0.1:9899/universe/api/v1/im/unilog/chat/chat.log
     -  input the login token: abc123
 
-<img src="images/login.png">
-- we can see the log stream
-<img src="images/log.png">
+![avatar](images/login.png)
 
+- we can see the log stream
+![avatar](images/log.png)
 
 #### 通过tid对日志全链路进行搜索
 > http://127.0.0.1:9899/universe/api/v1/im/unilog/chat/tid-search
 
-<img src="images/tid-search.png">
+![avatar](images/tid-search.png)

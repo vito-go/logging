@@ -21,7 +21,7 @@ import (
 	"github.com/vito-go/logging/tid"
 )
 
-// logTidLength限定对进的tid数量.
+// logTidLength 限定对进的tid数量.
 const logTidLength = 1 << 20
 
 // tidDelay  延迟2秒采集一次
