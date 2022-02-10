@@ -68,7 +68,7 @@ func tidUnilogPost(ctx *gin.Context) {
 	tidURL := fmt.Sprintf("http://%s%s/%s/tid-search", host, logging.BasePath, appName)
 	postForm := url.Values{}
 	postForm.Set("tid", tidStr)
-	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info("搜索日志")
+	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(ctx.Request.RemoteAddr,"搜索日志")
 	response, err := http.PostForm(tidURL, postForm)
 	if err != nil {
 		mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Error(err)

@@ -33,11 +33,11 @@ type Server struct{}
 func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
 	code, isAdd := appHostGlobal.add(req.APPName, req.Host, req.CodeInt) // 返回true对方
 	if isAdd {
-		mylog.Ctx(context.Background()).WithField("req", req).Info("集群节点 ==>>")
+		mylog.Ctx(context.Background()).WithField("req", req).Info("cluster node ==>>")
 	}
 	added, err := nginxGlobal.AddHostProxy(req.Host)
 	if err != nil {
-		mylog.Ctx(context.Background()).WithField("req", req).Errorf("nginxGlobal.AddHostProxy error. err=%s", err.Error())
+		mylog.Ctx(context.Background()).WithField("req", req).Errorf("nginxGlobal.AddHostProxy error. err: %s", err.Error())
 		return &code, nil
 	}
 	if added {
@@ -46,7 +46,7 @@ func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
 	return &code, nil
 }
 
-// GoStart 启动unilog注册中心
+// GoStart start the unilog.
 func GoStart(engine *gin.Engine, rpcServerAddr string, appNames ...string) {
 	appNameList = appNames
 	start(engine, rpcServerAddr)
@@ -62,10 +62,10 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 	rpcSrv := rpc.NewServer()
 	err = unilogrpc.RegisterUnilogServer(rpcSrv, &Server{})
 	if err != nil {
-		mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Errorf("server服务注册失败 err:", err.Error())
+		mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Errorf("unilog server register error:", err.Error())
 		return
 	}
-	mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Info("unilog分布式日志搜索引擎已启动")
+	mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Info("unilog distributed systems cluster start.")
 	engine.Any(filepath.ToSlash(filepath.Join(logging.BasePath, ":app", "*log")), tidUniAPPLog) // 反向代理
 	engine.GET(logging.BasePath, tidUnilogGet)                                                  // app={app}&log={log} 跳转
 	engine.POST(logging.BasePath, tidUnilogPost)                                                // post 查询tid
@@ -73,28 +73,20 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Errorf("unilog分布式日志搜索引擎结束! err:", err.Error())
+				mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Errorf("unilog distributed systems cluster is over. err:", err.Error())
 				return
 			}
-			// 端口号协议： lsh:<>
-			buf := make([]byte, 8) // 获取端口号
-			_, err = io.ReadFull(conn, buf)
-			if err != nil {
-				conn.Close()
-				mylog.Ctx(ctx).WithField("remoteAddr", conn.RemoteAddr().String()).Error(err.Error())
-				continue
-			}
-			// 不符合协议
-			if string(buf[:4]) != "lsh:" {
-				conn.Close()
-				continue
-			}
-			mylog.Ctx(ctx).WithField("remoteAddr", conn.RemoteAddr().String()).Info("收到新的集群服务链接")
-			httpPort := binary.BigEndian.Uint32(buf[4:8])
+
 			go func(conn net.Conn) {
 				defer conn.Close()
+				mylog.Ctx(ctx).Info("unilog rpc: receive a new client", conn.RemoteAddr().String())
+				httpPort, err := checkAndGetPort(conn)
+				if err != nil {
+					mylog.Ctx(ctx).WithField("remote_addr", conn.RemoteAddr()).Error("unilog rpc: get http port error:", err.Error())
+					return
+				}
 				rpcSrv.ServeConn(conn)
-				mylog.Ctx(ctx).WithField("remoteAddr", conn.RemoteAddr().String()).Info("集群服务链接 结束！")
+				mylog.Ctx(ctx).Info("unilog rpc: client is over:", conn.RemoteAddr().String())
 				var ip string
 				if ss := strings.Split(conn.RemoteAddr().String(), ":"); len(ss) > 0 {
 					ip = ss[0]
@@ -103,6 +95,22 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 			}(conn)
 		}
 	}()
+}
+
+// protocol 协议   端口号协议： lsh:<portCode>
+const protocol = "lsh:"
+
+func checkAndGetPort(conn net.Conn) (uint32, error) {
+	buf := make([]byte, 8) // 获取端口号
+	_, err := io.ReadFull(conn, buf)
+	if err != nil {
+		return 0, err
+	}
+	if s := string(buf[:4]); s != protocol {
+		return 0, fmt.Errorf("logging rpc: client protocol error. it's should be `%s` ,but it's `%s`", protocol, s)
+	}
+	httpPort := binary.BigEndian.Uint32(buf[4:8])
+	return httpPort, nil
 }
 
 // appHost .
@@ -139,7 +147,7 @@ func (a *appHost) ChooseOneHostByAppName(appName string) string {
 	return ""
 }
 
-// DelHost 删除app ip节点.
+// DelHost del a host when the node break.
 func (a *appHost) DelHost(ctx context.Context, host string) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
@@ -167,7 +175,7 @@ func (a *appHost) DelHost(ctx context.Context, host string) {
 	mylog.Ctx(ctx).WithField("Host", host).Warn("Can not Del Host. 未找到服务:", appName)
 }
 
-// Add true 插入, 返回ipCode. true代表添加了
+// Add 插入, 返回ipCode, true代表添加了
 func (a *appHost) add(appName, host string, codeInt int64) (int64, bool) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
@@ -210,12 +218,11 @@ func (a *appHost) add(appName, host string, codeInt int64) (int64, bool) {
 	return code, true
 }
 
-// Add true 插入, 返回ipCode.
 func (a *appHost) getHostByCode(appName string, code int64) string {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if a == nil || a.data == nil {
-		// 这种情况不会发生
+		// this case should not happen
 		return ""
 	}
 	// 已存在的集群
