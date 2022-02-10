@@ -82,7 +82,7 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 				mylog.Ctx(ctx).Info("unilog rpc: receive a new client", conn.RemoteAddr().String())
 				httpPort, err := checkAndGetPort(conn)
 				if err != nil {
-					mylog.Ctx(ctx).WithField("remote_addr", conn.RemoteAddr()).Error("unilog rpc: get http port error:", err.Error())
+					mylog.Ctx(ctx).WithField("remote_addr", conn.RemoteAddr()).Warn("unilog rpc: get http port error:", err.Error())
 					return
 				}
 				rpcSrv.ServeConn(conn)
@@ -169,7 +169,7 @@ func (a *appHost) DelHost(ctx context.Context, host string) {
 		delete(d.codeHostMap, code)
 		delete(a.ipAppMap, host)
 		mylog.Ctx(ctx).WithFields(
-			"appName", appName, "Host", host).Info("删除集群节点")
+			"appName", appName, "Host", host).Info("delete the cluster node")
 		return
 	}
 	mylog.Ctx(ctx).WithField("Host", host).Warn("Can not Del Host. 未找到服务:", appName)
