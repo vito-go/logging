@@ -27,21 +27,22 @@ import (
 	"github.com/vito-go/logging/unilogrpc"
 )
 
-type Server struct{}
+type Server struct{ ctx context.Context }
 
 // Register 分布式注册rpc方法
 func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
+	ctx:=s.ctx
 	code, isAdd := appHostGlobal.add(req.APPName, req.Host, req.CodeInt) // 返回true对方
 	if isAdd {
-		mylog.Ctx(context.Background()).WithField("req", req).Info("cluster node ==>>")
+		mylog.Ctx(ctx).WithField("req", req).Info("cluster node ==>>")
 	}
 	added, err := nginxGlobal.AddHostProxy(req.Host)
 	if err != nil {
-		mylog.Ctx(context.Background()).WithField("req", req).Errorf("nginxGlobal.AddHostProxy error. err: %s", err.Error())
+		mylog.Ctx(ctx).WithField("req", req).Errorf("nginxGlobal.AddHostProxy error. err: %s", err.Error())
 		return &code, nil
 	}
 	if added {
-		mylog.Ctx(context.Background()).WithField("req", req).Info("nginxGlobal.AddHostProxy successfully")
+		mylog.Ctx(ctx).WithField("req", req).Info("nginxGlobal.AddHostProxy successfully")
 	}
 	return &code, nil
 }
@@ -60,7 +61,7 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 		return
 	}
 	rpcSrv := rpc.NewServer()
-	err = unilogrpc.RegisterUnilogServer(rpcSrv, &Server{})
+	err = unilogrpc.RegisterUnilogServer(rpcSrv, &Server{ctx: ctx})
 	if err != nil {
 		mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Errorf("unilog server register error:", err.Error())
 		return

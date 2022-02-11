@@ -84,15 +84,11 @@
     function colorLogLevel(tag) {
         tag.innerHTML = tag.innerHTML.replace(/"tid"/g, "\"<span style='color: darkcyan; '>tid</span>\"")
         tag.innerHTML = tag.innerHTML.replace(/tid:/g, "<span style='color: darkcyan; '>tid:</span>")
-        tag.innerHTML = tag.innerHTML.replace(/\[INFO\]/g, "<span style='color: lawngreen; font-weight: bolder'>$&</span>")
-        tag.innerHTML = tag.innerHTML.replace(/\[WARN\]/g, "<span style='color: orange; font-weight: bolder'>$&</span>")
-        tag.innerHTML = tag.innerHTML.replace(/\[ERROR\]/g, "<span style='color: red; font-weight: bolder'>$&</span>")
-
-        tag.innerHTML = tag.innerHTML.replace(/\[info\]/g, "<span style='color: lawngreen; font-weight: bolder'>$&</span>")
-        tag.innerHTML = tag.innerHTML.replace(/\[warn\]/g, "<span style='color: orange; font-weight: bolder'>$&</span>")
-        tag.innerHTML = tag.innerHTML.replace(/\[error\]/g, "<span style='color: red; font-weight: bolder'>$&</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[info\]/gi, "<span style='color: lawngreen; font-weight: bolder'>[INFO]</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[warn\]/gi, "<span style='color: orange; font-weight: bolder'>[WARN]</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[warning\]/gi, "<span style='color: orange; font-weight: bolder'>[WARN]</span>")
+        tag.innerHTML = tag.innerHTML.replace(/\[error\]/gi, "<span style='color: red; font-weight: bolder'>[ERROR]</span>")
     }
-
     function getLogByTid() {
         container.innerHTML = ""
         var tid = tidipt.value
