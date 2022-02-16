@@ -31,7 +31,7 @@ type Server struct{ ctx context.Context }
 
 // Register 分布式注册rpc方法
 func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
-	ctx:=s.ctx
+	ctx := s.ctx
 	code, isAdd := appHostGlobal.add(req.APPName, req.Host, req.CodeInt) // 返回true对方
 	if isAdd {
 		mylog.Ctx(ctx).WithField("req", req).Info("cluster node ==>>")
@@ -142,10 +142,42 @@ func (a *appHost) ChooseOneHostByAppName(appName string) string {
 		return ""
 	}
 	ie := appHostGlobal.data[appName].ipCodeExistMap
+	// todo 为什么不直接 从 ipCodeMap 取值？
 	for code := range ie {
 		return appHostGlobal.data[appName].codeHostMap[code]
 	}
 	return ""
+}
+
+// GetHosts 获取一个app的所有ip
+func GetHosts(appName string) []string {
+	appHostGlobal.mux.Lock()
+	defer appHostGlobal.mux.Unlock()
+
+	data, ok := appHostGlobal.data[appName]
+	if !ok {
+		return nil
+	}
+	var ips []string
+	for ip := range data.ipCodeMap {
+		ips = append(ips, ip)
+	}
+	return ips
+}
+
+// GetAllAppHosts 获取所有app的所有ip, map[app]hosts
+func GetAllAppHosts() map[string][]string {
+	appHostGlobal.mux.Lock()
+	defer appHostGlobal.mux.Unlock()
+	var result = make(map[string][]string, 10)
+	for app, info := range appHostGlobal.data {
+		hosts := make([]string, 0, len(info.ipCodeMap))
+		for host := range info.ipCodeMap {
+			hosts = append(hosts, host)
+			result[app] = hosts
+		}
+	}
+	return result
 }
 
 // DelHost del a host when the node break.
