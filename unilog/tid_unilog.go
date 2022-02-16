@@ -25,6 +25,11 @@ var unilogTidHtml string
 //  appNameList 未来考虑走配置
 var appNameList []string
 
+// getLogInfoNameFunc 默认的日志文件名称规则.
+var getLogInfoNameFunc = func(app string) (logInfo, logErr string) {
+	return app + ".log", app + "-err.log"
+}
+
 // tidUnilogGet 分布式日志搜索路由入口. 打开tid搜索界面或者进行跳转. 与logging滚动查看日志(即 logClient )进行了解藕
 func tidUnilogGet(ctx *gin.Context) {
 	// 优先判断是否有app 和 log 参数，可以进行跳转
@@ -33,7 +38,7 @@ func tidUnilogGet(ctx *gin.Context) {
 	if logName == "" {
 		logName = app + ".log" // 默认日志名称
 	}
-	if host := appHostGlobal.ChooseOneHostByAppName(app); host != "" {
+	if host := chooseOneHostByAppName(app); host != "" {
 		if redirect(ctx.Writer, ctx.Request, host, app, logName) {
 			return
 		}
@@ -41,6 +46,7 @@ func tidUnilogGet(ctx *gin.Context) {
 	b, _ := json.Marshal(appNameList)
 	// 替换符加个单引号防止被格式化
 	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
+	strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", logging.BasePath)
 	ctx.Writer.WriteString(strings.ReplaceAll(unilogTidHtml, "'{{appNameList}}'", string(b)))
 	return
 }
@@ -68,7 +74,7 @@ func tidUnilogPost(ctx *gin.Context) {
 	tidURL := fmt.Sprintf("http://%s%s/%s/tid-search", host, logging.BasePath, appName)
 	postForm := url.Values{}
 	postForm.Set("tid", tidStr)
-	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(ctx.Request.RemoteAddr,"搜索日志")
+	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(ctx.Request.RemoteAddr, "搜索日志")
 	response, err := http.PostForm(tidURL, postForm)
 	if err != nil {
 		mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Error(err)
@@ -83,7 +89,7 @@ func tidUnilogPost(ctx *gin.Context) {
 // tidUniAPPLog 分布式日志搜索路由入口. 与logging滚动查看日志(即 logClient )进行了解藕
 func tidUniAPPLog(ctx *gin.Context) {
 	app := ctx.Param("app")
-	if host := appHostGlobal.ChooseOneHostByAppName(app); host != "" {
+	if host := chooseOneHostByAppName(app); host != "" {
 		// 可以选择redirect 跳转 或者reverse反向代理，未来可以考虑走配置
 		if reverse(ctx.Writer, ctx.Request, host) {
 			return

@@ -115,7 +115,7 @@
             return
         }
         var xhr = new XMLHttpRequest()
-        xhr.open("POST", "/universe/api/v1/im/unilog")
+        xhr.open("POST", "'{{BasePath}}'")
         var fm = new FormData()
         fm.set("tid", tid)
         fm.set("appName", appName)
@@ -184,6 +184,7 @@
         }
     }
 
+    // 加个引号是为了兼容html语法
     showAppName('{{appNameList}}')
 </script>
 </body>

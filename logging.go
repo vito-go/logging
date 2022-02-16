@@ -49,14 +49,15 @@ type logClient struct {
 	tidSearchFile *os.File // 指定tid搜索的文件
 }
 
-const defaultToken = "universe123Mm" // universe123Mm
+// defaultToken 默认登录密码
+const defaultToken = "123456Mm" // 123456Mm
 
 // Config logging配置
 type Config struct {
 	APPName     string // APPName 服务名称
 	Token       string // Token sha1加密字符串.
 	LogInfoPath string // LogInfoPath info级别日志文件路径，info日志应该包括所有等级（warn、err）的日志
-	LogErrPath  string
+	LogErrPath  string // LogInfoPath err级别日志文件路径,有可能包含warn日志
 	TidPattern  string // TidPattern 必须包含且只包含一个括号 数字类型， 例如`"tid":(\d+)`  或 `tid:(\d+)`
 }
 
@@ -83,7 +84,7 @@ func SetBasePath(path string) {
 // engine 使用gin框架的engine, httpPort 为http服务监听的端口号。
 // unilogAddr 分布式日志注册中心，可为空
 func Init(engine *gin.Engine, httpPort int, unilogAddr string, cfg Config) {
-	mylog.Ctx(context.TODO()).WithField("cfg",cfg).Info("logging init")
+	mylog.Ctx(context.TODO()).WithField("cfg", cfg).Info("logging init")
 	if cfg.TidPattern == "" {
 		cfg.TidPattern = `"tid":(\d+)`
 	}

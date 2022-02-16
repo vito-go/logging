@@ -47,9 +47,12 @@ func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
 	return &code, nil
 }
 
-// GoStart start the unilog.
-func GoStart(engine *gin.Engine, rpcServerAddr string, appNames ...string) {
+// GoStart start the unilog. getLogNameByApp 根据app获取info日志和err日志文件名，不应包含路径. 用来做日志导航。
+func GoStart(engine *gin.Engine, rpcServerAddr string, getLogNameByApp func(app string) (logInfo, logErr string), appNames ...string) {
 	appNameList = appNames
+	if getLogNameByApp != nil {
+		getLogInfoNameFunc = getLogNameByApp
+	}
 	start(engine, rpcServerAddr)
 }
 func start(engine *gin.Engine, rpcServerAddr string) {
@@ -70,6 +73,7 @@ func start(engine *gin.Engine, rpcServerAddr string) {
 	engine.Any(filepath.ToSlash(filepath.Join(logging.BasePath, ":app", "*log")), tidUniAPPLog) // 反向代理
 	engine.GET(logging.BasePath, tidUnilogGet)                                                  // app={app}&log={log} 跳转
 	engine.POST(logging.BasePath, tidUnilogPost)                                                // post 查询tid
+	engine.GET(filepath.ToSlash(filepath.Join(logging.BasePath, "log-navi")), LogNavi)          // log 导航                                    // post 查询tid
 	go func() {
 		for {
 			conn, err := listener.Accept()
@@ -130,21 +134,17 @@ type appHostCode struct {
 }
 
 func GetHostByCode(appName string, code int64) string {
-	return appHostGlobal.getHostByCode(appName, code)
+	return getHostByCode(appName, code)
 }
 
-// ChooseOneHostByAppName 随机选择一个ip一般用于一个节点的服务查看滚动日志.
-func (a *appHost) ChooseOneHostByAppName(appName string) string {
-	a.mux.Lock()
-	defer a.mux.Unlock()
-	if a == nil || a.data == nil {
-		// 这种情况不会发生
-		return ""
-	}
-	ie := appHostGlobal.data[appName].ipCodeExistMap
-	// todo 为什么不直接 从 ipCodeMap 取值？
-	for code := range ie {
-		return appHostGlobal.data[appName].codeHostMap[code]
+// chooseOneHostByAppName 随机选择一个ip一般用于一个节点的服务查看滚动日志.
+func chooseOneHostByAppName(appName string) string {
+	appHostGlobal.mux.Lock()
+	defer appHostGlobal.mux.Unlock()
+
+	ipCodeMap := appHostGlobal.data[appName].ipCodeMap
+	for host := range ipCodeMap {
+		return host
 	}
 	return ""
 }
@@ -174,8 +174,8 @@ func GetAllAppHosts() map[string][]string {
 		hosts := make([]string, 0, len(info.ipCodeMap))
 		for host := range info.ipCodeMap {
 			hosts = append(hosts, host)
-			result[app] = hosts
 		}
+		result[app] = hosts
 	}
 	return result
 }
@@ -251,13 +251,10 @@ func (a *appHost) add(appName, host string, codeInt int64) (int64, bool) {
 	return code, true
 }
 
-func (a *appHost) getHostByCode(appName string, code int64) string {
-	a.mux.Lock()
-	defer a.mux.Unlock()
-	if a == nil || a.data == nil {
-		// this case should not happen
-		return ""
-	}
+func getHostByCode(appName string, code int64) string {
+	appHostGlobal.mux.Lock()
+	defer appHostGlobal.mux.Unlock()
+
 	// 已存在的集群
 	return appHostGlobal.data[appName].codeHostMap[code]
 }

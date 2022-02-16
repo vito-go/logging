@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>logging导航</title>
+    <style>
+        html{
+            background-color: whitesmoke;
+        }
+        table {
+            font-family: monospace;
+            font-size: 22px;
+            width: max-content;
+            text-align: left;
+            border-collapse: collapse;
+            border: 1px seagreen;
+            border-spacing: unset;
+        }
+        td {
+            padding: 5px 20px 5px 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>logging导航</h1>
+<table>
+    <thead style="font-weight: bolder;text-align: center">
+    <tr>
+        <td>Service</td>
+        <td>Addr</td>
+        <td>LogInfo</td>
+        <td>LogErr</td>
+    </tr>
+    </thead>
+    <tbody>
+    {{range .}}
+        <tr>
+            <td><span style="color: darkviolet">{{firstUpper .App}}</span></td>
+            <td>{{.Host}}</td>
+            <td><a target="_blank" href="http://{{.Host}}{{.BasePath}}/{{.App}}/{{.LogInfo}}"><span
+                            style="color: green">{{.LogInfo}}</span></a></td>
+            <td><a target="_blank" href="http://{{.Host}}{{.BasePath}}/{{.App}}/{{.LogErr}}"> <span
+                            style="color: red">{{.LogErr}}</span></a></td>
+        </tr>
+    {{end}}
+    </tbody>
+</table>
+</body>
+</html>

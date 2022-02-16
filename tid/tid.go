@@ -78,6 +78,7 @@ func run(appName string, httpPort int, unilogAddr string) {
 	var retryCount int
 	for {
 		if retryCount >= rpcRetryLimit {
+			mylog.Ctx(context.TODO()).Warnf("unilog重试次数超过%d, 节点终止", rpcRetryLimit)
 			// 重试超过100次就终止
 			return
 		}
@@ -89,7 +90,7 @@ func run(appName string, httpPort int, unilogAddr string) {
 			continue
 		}
 		var portB = make([]byte, 8)
-		copy(portB,"lsh:")
+		copy(portB, "lsh:")
 		binary.BigEndian.PutUint32(portB[4:], uint32(httpPort))
 		_, err = conn.Write(portB) // 将服务的端口号发送给注册中心，以便客户端停止的时候 服务端能 删除该服务
 		if err != nil {
