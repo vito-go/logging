@@ -48,7 +48,7 @@ func tidUnilogGet(ctx *gin.Context) {
 	// 替换符加个单引号防止被格式化
 	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
 	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", logging.BasePath)
-	replacer.WriteString(ctx.Writer, string(b))
+	replacer.WriteString(ctx.Writer, unilogTidHtml)
 	return
 }
 
@@ -100,7 +100,7 @@ func tidUniAPPLog(ctx *gin.Context) {
 	// 替换符加个单引号防止被格式化
 	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
 	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", logging.BasePath)
-	replacer.WriteString(ctx.Writer, string(b))
+	replacer.WriteString(ctx.Writer, unilogTidHtml)
 	return
 
 }
