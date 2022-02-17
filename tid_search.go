@@ -102,7 +102,7 @@ func (lc *logClient) TidSearch(ctx *gin.Context) {
 	}
 	if ctx.Request.Method != "POST" {
 		if !isLogin(ctx.Request, cookieKey, lc.token) {
-			r := strings.NewReplacer("{{jumpPath}}", lc.tieSearchPath, "{{loginPath}}", lc.loginPath)
+			r := strings.NewReplacer("'{{jumpPath}}'", lc.tieSearchPath, "'{{loginPath}}'", lc.loginPath)
 			ctx.Writer.WriteString(r.Replace(loginHtml))
 			return
 		}

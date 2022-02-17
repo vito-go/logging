@@ -161,7 +161,7 @@ func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, tidP
 func (lc *logClient) logIndex(ctx *gin.Context) {
 	path := ctx.Request.URL.Path
 	if !isLogin(ctx.Request, cookieKey, lc.token) {
-		r := strings.NewReplacer("{{jumpPath}}", path, "{{loginPath}}", lc.loginPath)
+		r := strings.NewReplacer("'{{jumpPath}}'", path, "'{{loginPath}}'", lc.loginPath)
 		ctx.Writer.WriteString(r.Replace(loginHtml))
 		return
 	}
@@ -180,7 +180,7 @@ func (lc *logClient) login(ctx *gin.Context) {
 			ctx.Writer.WriteString("<h1>阁下已登录!</h1>")
 			return
 		}
-		r := strings.NewReplacer("{{jumpPath}}", lc.loginPath, "{{loginPath}}", lc.loginPath)
+		r := strings.NewReplacer("'{{jumpPath}}'", lc.loginPath, "'{{loginPath}}'", lc.loginPath)
 		ctx.Writer.WriteString(r.Replace(loginHtml))
 		return
 	}
@@ -193,7 +193,7 @@ func (lc *logClient) login(ctx *gin.Context) {
 		mylog.Ctx(ctx).WithField("remoteAddr", ctx.Request.RemoteAddr).Info("login successfully!")
 		return
 	}
-	r := strings.NewReplacer("{{jumpPath}}", jumpPath, "{{loginPath}}", lc.loginPath, "{{tokenFailed}}", "true")
+	r := strings.NewReplacer("'{{jumpPath}}'", jumpPath, "'{{loginPath}}'", lc.loginPath, "{{tokenFailed}}", "true")
 	ctx.Writer.WriteString(r.Replace(loginHtml))
 	mylog.Ctx(ctx).WithFields("remoteAddr", ctx.Request.RemoteAddr, "token", tokenStr).Warn("login failed!")
 	return
