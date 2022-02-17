@@ -181,6 +181,9 @@ func GetAllAppHosts() []appHosts {
 		for host := range info.ipCodeMap {
 			hosts = append(hosts, host)
 		}
+		sort.Slice(hosts, func(i, j int) bool {
+			return hosts[i] < hosts[j]
+		})
 		result = append(result, appHosts{
 			App:   app,
 			Hosts: hosts,
