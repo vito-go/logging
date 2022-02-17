@@ -31,6 +31,7 @@ var getLogInfoNameFunc = func(app string) (logInfo, logErr string) {
 }
 
 // tidUnilogGet 分布式日志搜索路由入口. 打开tid搜索界面或者进行跳转. 与logging滚动查看日志(即 logClient )进行了解藕
+// Deprecated: 由logging导航接管此功能.
 func tidUnilogGet(ctx *gin.Context) {
 	// 优先判断是否有app 和 log 参数，可以进行跳转
 	app := ctx.Query("app")     // err-im  或者im

@@ -23,14 +23,14 @@ type LogApp struct {
 
 // LogNavi  log导航
 func LogNavi(ctx *gin.Context) {
-	appHosts := GetAllAppHosts()
-	logApps := make([]LogApp, 0, 10)
-	for app, hosts := range appHosts {
-		logInfo, logErr := getLogInfoNameFunc(app)
-		for _, host := range hosts {
+	appHostList := GetAllAppHosts()
+	logApps := make([]LogApp, 0, len(appHostList))
+	for _, s := range appHostList {
+		logInfo, logErr := getLogInfoNameFunc(s.App)
+		for _, host := range s.Hosts {
 			logApps = append(logApps, LogApp{
 				BasePath: logging.BasePath,
-				App:      app,
+				App:      s.App,
 				Host:     host,
 				LogInfo:  logInfo,
 				LogErr:   logErr,

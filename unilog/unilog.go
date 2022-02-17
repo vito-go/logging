@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/rpc"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -165,8 +166,34 @@ func GetHosts(appName string) []string {
 	return ips
 }
 
-// GetAllAppHosts 获取所有app的所有ip, map[app]hosts
-func GetAllAppHosts() map[string][]string {
+type appHosts struct {
+	App   string
+	Hosts []string
+}
+
+// GetAllAppHosts 获取所有app的所有ip
+func GetAllAppHosts() []appHosts {
+	appHostGlobal.mux.Lock()
+	defer appHostGlobal.mux.Unlock()
+	var result = make([]appHosts, 10)
+	for app, info := range appHostGlobal.data {
+		hosts := make([]string, 0, len(info.ipCodeMap))
+		for host := range info.ipCodeMap {
+			hosts = append(hosts, host)
+		}
+		result = append(result, appHosts{
+			App:   app,
+			Hosts: hosts,
+		})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].App) < strings.ToLower(result[j].App)
+	})
+	return result
+}
+
+// GetAllAppHostMap 获取所有app的所有ip, map[app]hosts
+func GetAllAppHostMap() map[string][]string {
 	appHostGlobal.mux.Lock()
 	defer appHostGlobal.mux.Unlock()
 	var result = make(map[string][]string, 10)
