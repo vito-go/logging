@@ -50,7 +50,7 @@ func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
 var _basePath = "/logging"
 
 // GoStart start the unilog. logFunc 根据app获取info日志和err日志文件名，不应包含路径. 用来做日志导航。
-func GoStart(engine *gin.Engine, path logging.BasePath, rpcServerAddr string, logFunc LogInfoNameFunc, appNames ...string) {
+func GoStart(engine *gin.Engine, rpcServerAddr string, path logging.BasePath, logFunc LogInfoNameFunc, appNames ...string) {
 	appNameList = appNames
 	if path != "" {
 		logging.MustCheckBasePath(path)
