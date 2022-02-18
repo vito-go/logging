@@ -6,8 +6,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
-
-	"github.com/vito-go/logging"
 )
 
 type nginx struct {
@@ -58,8 +56,8 @@ func redirect(w http.ResponseWriter, r *http.Request, host string, app string, l
 	if host == "" || app == "" || logName == "" {
 		return false
 	}
-	w.Header().Set("Cache-Control", "no-cache")                                    // 必须设置无缓存，不然跳转到以前的ip。
-	www := fmt.Sprintf("http://%s%s/%s/%s", host, logging.BasePath, app, logName) // appName logName)
+	w.Header().Set("Cache-Control", "no-cache")                            // 必须设置无缓存，不然跳转到以前的ip。
+	www := fmt.Sprintf("http://%s%s/%s/%s", host, _basePath, app, logName) // appName logName)
 	http.Redirect(w, r, www, http.StatusMovedPermanently)
 	return true
 }

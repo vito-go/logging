@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/vito-go/logging"
 )
 
 //go:embed log_navi.gohtml
@@ -21,15 +19,19 @@ type LogApp struct {
 	LogErr   string
 }
 
-// LogNavi  log导航
-func LogNavi(ctx *gin.Context) {
+type logNavi struct {
+	getLogNameByApp LogInfoNameFunc
+}
+
+// LoggingNavi  log导航
+func (l *logNavi) LoggingNavi(ctx *gin.Context) {
 	appHostList := GetAllAppHosts()
 	logApps := make([]LogApp, 0, len(appHostList))
 	for _, s := range appHostList {
-		logInfo, logErr := getLogInfoNameFunc(s.App)
+		logInfo, logErr := l.getLogNameByApp(s.App)
 		for _, host := range s.Hosts {
 			logApps = append(logApps, LogApp{
-				BasePath: logging.BasePath,
+				BasePath: _basePath,
 				App:      s.App,
 				Host:     host,
 				LogInfo:  logInfo,

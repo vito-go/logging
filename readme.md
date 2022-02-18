@@ -35,7 +35,7 @@ func main() {
 	port := flag.Int("p", 9899, "specrify port ")
 	flag.Parse()
 	engine := gin.Default()
-	appName:="chat"
+	appName := "chat"
 	logInfoPath := "chat.log"
 	logErrPath := "chat-err.log"
 	fInfo, err := os.OpenFile(logInfoPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
@@ -47,13 +47,13 @@ func main() {
 		panic(err)
 	}
 	mylog.Init(fInfo, io.MultiWriter(fInfo, fErr), io.MultiWriter(fInfo, fErr), "tid")
-	unilogServerAddr:=""// 单机版本，分布式注册中心地址可为空
-	logging.Init(engine, *port, unilogServerAddr, logging.Config{
+	unilogServerAddr := "" // 单机版本，分布式注册中心地址可为空
+	basePath := "/universe/api/im/unilog/logging"         // 单机版本，分布式注册中心地址可为空
+	logging.Init(engine, *port, logging.BasePath(basePath), unilogServerAddr, logging.Config{
 		APPName:     appName,
 		Token:       "abc123",
 		LogInfoPath: logInfoPath,
 		LogErrPath:  logErrPath,
-		TidPattern:  `"tid":(\d+)`,
 	})
 	engine.GET("/hello", func(ctx *gin.Context) {
 		ctx.Set("tid", tid.Get())

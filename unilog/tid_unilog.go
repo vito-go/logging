@@ -14,8 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vito-go/mylog"
-
-	"github.com/vito-go/logging"
 )
 
 //go:embed unilog_tid.html
@@ -25,8 +23,10 @@ var unilogTidHtml string
 //  appNameList 未来考虑走配置
 var appNameList []string
 
-// getLogInfoNameFunc 默认的日志文件名称规则.
-var getLogInfoNameFunc = func(app string) (logInfo, logErr string) {
+type LogInfoNameFunc func(app string) (logInfo, logErr string)
+
+// DefaultLogInfoNameFunc 默认的日志文件名称规则.
+var DefaultLogInfoNameFunc = func(app string) (logInfo, logErr string) {
 	return app + ".log", app + "-err.log"
 }
 
@@ -47,7 +47,7 @@ func tidUnilogGet(ctx *gin.Context) {
 	b, _ := json.Marshal(appNameList)
 	// 替换符加个单引号防止被格式化
 	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
-	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", logging.BasePath)
+	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", _basePath)
 	replacer.WriteString(ctx.Writer, unilogTidHtml)
 	return
 }
@@ -72,7 +72,7 @@ func tidUnilogPost(ctx *gin.Context) {
 		ctx.Writer.WriteString("未找到对应集群节点")
 		return
 	}
-	tidURL := fmt.Sprintf("http://%s%s/%s/tid-search", host, logging.BasePath, appName)
+	tidURL := fmt.Sprintf("http://%s%s/%s/tid-search", host, _basePath, appName)
 	postForm := url.Values{}
 	postForm.Set("tid", tidStr)
 	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(ctx.Request.RemoteAddr, "搜索日志")
@@ -99,7 +99,7 @@ func tidUniAPPLog(ctx *gin.Context) {
 	b, _ := json.Marshal(appNameList)
 	// 替换符加个单引号防止被格式化
 	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
-	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", logging.BasePath)
+	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", _basePath)
 	replacer.WriteString(ctx.Writer, unilogTidHtml)
 	return
 

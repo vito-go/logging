@@ -45,7 +45,7 @@ type logClient struct {
 
 	loginPath     string   // 登录的路由
 	tieSearchPath string   // 登录的路由
-	token         string   // sha1 password==>token
+	token         string   // sha1 password==> if token is empty it's no needed to login which is recommend not.
 	tidSearchFile *os.File // 指定tid搜索的文件
 }
 
@@ -58,16 +58,19 @@ type Config struct {
 	Token       string // Token sha1加密字符串.
 	LogInfoPath string // LogInfoPath info级别日志文件路径，info日志应该包括所有等级（warn、err）的日志
 	LogErrPath  string // LogInfoPath err级别日志文件路径,有可能包含warn日志
-	TidPattern  string // TidPattern 必须包含且只包含一个括号 数字类型， 例如`"tid":(\d+)`  或 `tid:(\d+)`
 }
 
-// BasePath 基础路由地址. use SetBasePath to change it.
-// 必须以/开头，结尾不能包含/
-//  "/universe/api/v1/im/unilog"
-var BasePath = "/universe/api/v1/im/unilog" // appName
+var basePathNot = []string{`{`, `}`, `:`, `*`}
 
-// SetBasePath must set before Init if needed.
-func SetBasePath(path string) {
+// BasePath the root path, it should:
+// 1. must not be empty;
+// 2. must begin with /
+// 3. must not end with /
+// 4  must not contain one of the basePathNot
+type BasePath string
+
+// MustCheckBasePath look at the rule of BasePath.
+func MustCheckBasePath(path BasePath) {
 	if len(path) == 0 {
 		panic("empty path")
 	}
@@ -77,18 +80,22 @@ func SetBasePath(path string) {
 	if path[len(path)-1] == '/' {
 		panic("base path must not end with /")
 	}
-	BasePath = path
+	for _, s := range basePathNot {
+		if strings.Contains(string(path), s) {
+			panic("base path must not contain " + s)
+		}
+	}
 }
 
-// Init 初始化(high-level)
-// engine 使用gin框架的engine, httpPort 为http服务监听的端口号。
-// unilogAddr 分布式日志注册中心，可为空
-func Init(engine *gin.Engine, httpPort int, unilogAddr string, cfg Config) {
+// Init (high-level)
+// httpPort is the port of the http server listened.
+// unilogAddr can be empty if only used locally.
+func Init(engine *gin.Engine, httpPort int, path BasePath, unilogAddr string, cfg Config) {
+
+	MustCheckBasePath(path)
+
 	mylog.Ctx(context.TODO()).WithField("cfg", cfg).Info("logging init")
-	if cfg.TidPattern == "" {
-		cfg.TidPattern = `"tid":(\d+)`
-	}
-	basePath := filepath.Join(BasePath, cfg.APPName)
+	basePath := filepath.Join(string(path), cfg.APPName)
 	loginPath := filepath.ToSlash(filepath.Join(basePath, "login"))
 	tidSearchPath := filepath.ToSlash(filepath.Join(basePath, "tid-search"))
 	// 注册分布式tid.
@@ -99,7 +106,7 @@ func Init(engine *gin.Engine, httpPort int, unilogAddr string, cfg Config) {
 	var logPaths = []LogPath{
 		{FileName: cfg.LogInfoPath, RouterPath: filepath.ToSlash(filepath.Join(basePath, filepath.Base(cfg.LogInfoPath)))},
 		{FileName: cfg.LogErrPath, RouterPath: filepath.ToSlash(filepath.Join(basePath, filepath.Base(cfg.LogErrPath)))}}
-	err = RegisterGin(engine, cfg.LogInfoPath, loginPath, tidSearchPath, cfg.TidPattern, cfg.Token, logPaths...)
+	err = RegisterGin(engine, cfg.LogInfoPath, loginPath, tidSearchPath, cfg.Token, logPaths...)
 	if err != nil {
 		mylog.Ctx(context.TODO()).Warn(err.Error())
 	}
@@ -108,17 +115,17 @@ func Init(engine *gin.Engine, httpPort int, unilogAddr string, cfg Config) {
 // RegisterGin 初始化(low-level)
 // logInfoPath 日志路径（包含所有等级的日志）， loginPath 日志页面登录路由地址，tidSearchPath 日志搜索页面地址
 // token 登录授权码， logPaths: 日志与该日志所对应的路由地址
-func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, tidPattern, token string, logPaths ...LogPath) error {
+func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
 	ctx := context.WithValue(context.Background(), "tid", tid.Get())
 	// 开启tid搜索引擎服务
-	GoRunTidSearch(logInfoPath, tidPattern)
+	GoRunTidSearch(logInfoPath)
 	if len(logPaths) == 0 {
 		return errors.New("there is no logPath. logging register failed")
 	}
-	if token == "" {
-		token = defaultToken
+	var tokenSha1 string
+	if token != "" {
+		tokenSha1 = getSha1Str(token)
 	}
-	tokenSha1 := getSha1Str(token)
 	tidSearchF, err := os.OpenFile(logInfoPath, os.O_CREATE|os.O_RDONLY, 0644)
 	if err != nil {
 		return err
@@ -160,7 +167,7 @@ func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, tidP
 
 func (lc *logClient) logIndex(ctx *gin.Context) {
 	path := ctx.Request.URL.Path
-	if !isLogin(ctx.Request, cookieKey, lc.token) {
+	if lc.token != "" && !isLogin(ctx.Request, cookieKey, lc.token) {
 		r := strings.NewReplacer("'{{jumpPath}}'", path, "'{{loginPath}}'", lc.loginPath)
 		ctx.Writer.WriteString(r.Replace(loginHtml))
 		return
@@ -220,7 +227,7 @@ func isLogin(r *http.Request, cookieKey string, cookieValue string) bool {
 func (lc *logClient) logPush(ctx *gin.Context) {
 	w := ctx.Writer
 	w.Header().Set("Content-Type", "text/event-stream")
-	if !isLogin(ctx.Request, cookieKey, lc.token) {
+	if lc.token != "" && !isLogin(ctx.Request, cookieKey, lc.token) {
 		w.WriteString("data: auth failed!\n\n")
 		return
 	}

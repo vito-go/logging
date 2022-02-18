@@ -30,10 +30,13 @@ const tidDelay = time.Second * 2
 // _logList 全局tid搜索链表.
 var _logList = newLogList(logTidLength)
 
+// tidPattern tid应该是一个16位及以上的数字。毫秒级别的时间戳+3位. 但太
+const tidPattern = `\d{16,}`
+
 // GoRunTidSearch tid搜索引擎服务. 这里一定要传logPath而不是和日志相同的文件句柄*os.File
-func GoRunTidSearch(logPath string, tidPattern string) {
+func GoRunTidSearch(logPath string) {
 	go func() {
-		err := runTidSearch(logPath, tidPattern)
+		err := runTidSearch(logPath)
 		if err != nil {
 			log.Printf("tid search run error. server exit. err=%s\n", err.Error())
 		}
@@ -41,13 +44,13 @@ func GoRunTidSearch(logPath string, tidPattern string) {
 }
 
 // runTidSearch tid搜索引擎服务. 这里一定要传logPath而不是和日志相同的文件句柄*os.File
-func runTidSearch(logPath string, tidPattern string) error {
+func runTidSearch(logPath string) error {
 	f, err := os.Open(logPath)
 	if err != nil {
 		return fmt.Errorf("tid搜索服务启动失败! err: %s", err.Error())
 	}
 	var offset int64
-	n := readToLogList(offset, tidPattern, f)
+	n := readToLogList(offset, f)
 	offset += n
 	var b []byte
 	for {
@@ -59,13 +62,13 @@ func runTidSearch(logPath string, tidPattern string) error {
 			time.Sleep(tidDelay)
 			continue
 		}
-		readToLogList(offset, tidPattern, bytes.NewReader(b))
+		readToLogList(offset, bytes.NewReader(b))
 		offset += int64(len(b))
 	}
 }
 
-// readToLogList  tidPattern `"tid":(\d+)`
-func readToLogList(offset int64, tidPattern string, reader io.Reader) (n int64) {
+// readToLogList .
+func readToLogList(offset int64, reader io.Reader) (n int64) {
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 1<<10), maxScanTokenSize)
 	for scanner.Scan() {
@@ -101,7 +104,7 @@ func (lc *logClient) TidSearch(ctx *gin.Context) {
 		return
 	}
 	if ctx.Request.Method != "POST" {
-		if !isLogin(ctx.Request, cookieKey, lc.token) {
+		if lc.token != "" && !isLogin(ctx.Request, cookieKey, lc.token) {
 			r := strings.NewReplacer("'{{jumpPath}}'", lc.tieSearchPath, "'{{loginPath}}'", lc.loginPath)
 			ctx.Writer.WriteString(r.Replace(loginHtml))
 			return
