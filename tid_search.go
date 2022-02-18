@@ -76,12 +76,10 @@ func readToLogList(offset int64, reader io.Reader) (n int64) {
 		line := scanner.Text()
 		offset += int64(len(line)) + 1
 		reg := regexp.MustCompile(tidPattern)
-		result := reg.FindAllStringSubmatch(line, 1)
-		var tidStr string
-		if len(result) == 0 {
+		tidStr := reg.FindString(line)
+		if len(tidStr) == 0 {
 			continue
 		}
-		tidStr = result[0][1]
 		tidInt, _ := strconv.ParseInt(tidStr, 10, 64)
 		b := offset
 		_logList.Insert(tidInt, offsetAB{A: a, B: b})

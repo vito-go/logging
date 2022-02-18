@@ -58,7 +58,7 @@ func GoStart(engine *gin.Engine, rpcServerAddr string, path logging.BasePath, lo
 	}
 	start(engine, rpcServerAddr, logFunc)
 }
-func start(engine *gin.Engine, rpcServerAddr string, f LogInfoNameFunc) {
+func start(engine *gin.Engine, rpcServerAddr string, logFunc LogInfoNameFunc) {
 	ctx := context.WithValue(context.Background(), "tid", tid.Get())
 	listener, err := net.Listen("tcp", rpcServerAddr)
 	if err != nil {
@@ -78,8 +78,8 @@ func start(engine *gin.Engine, rpcServerAddr string, f LogInfoNameFunc) {
 	engine.POST(_basePath, tidUnilogPost)                                                // post 查询tid
 
 	navi := &logNavi{getLogNameByApp: DefaultLogInfoNameFunc}
-	if f != nil {
-		navi.getLogNameByApp = f
+	if logFunc != nil {
+		navi.getLogNameByApp = logFunc
 	}
 	engine.GET(filepath.ToSlash(filepath.Join(_basePath, "log-navi")), navi.LoggingNavi) // log 导航                                    // post 查询tid
 	go func() {
