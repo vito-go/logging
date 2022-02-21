@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:;base64,=">
-    <title>{{title}}</title>
+    <title>'{{title}}'</title>
     <style>
         body {
             margin: 0;
@@ -116,7 +116,7 @@
         return "";
     }
 
-    var sse = new EventSource("{{logPushPath}}")
+    var sse = new EventSource("'{{logPushPath}}'")
     // sse.addEventListener("myy",function (e){console.log("-=-----",e)})
     sse.onmessage = function (event) {
         //可能有问题?? 有的日志如果多行的话

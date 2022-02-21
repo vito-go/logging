@@ -35,22 +35,16 @@ type LogPath struct {
 	FileName, RouterPath string
 }
 
-//  logPushPathMap map[pushPath]*os.File
-type logPushPathMap map[string]*os.File
-
 type logClient struct {
-	logMap             logPushPathMap    // 路由对应的文件句柄 *os.File
-	logFileNameMap     map[string]string // 路由对应的文件 map[routerPath]filename
-	logFileNamePushMap map[string]string // 路由对应的文件 map[filename]pushPath
+	logMap             map[string]*os.File // map[pushPath]*os.File 路由对应的文件句柄 *os.File
+	logFileNameMap     map[string]string   // 路由对应的文件 map[routerPath]filename
+	logFileNamePushMap map[string]string   // 路由对应的文件 map[filename]pushPath
 
 	loginPath     string   // 登录的路由
-	tieSearchPath string   // 登录的路由
+	tieSearchPath string   // tid搜索 路由
 	token         string   // sha1 password==> if token is empty it's no needed to login which is recommend not.
 	tidSearchFile *os.File // 指定tid搜索的文件
 }
-
-// defaultToken 默认登录密码
-const defaultToken = "123456Mm" // 123456Mm
 
 // Config logging配置
 type Config struct {
@@ -63,9 +57,13 @@ type Config struct {
 var basePathNot = []string{`{`, `}`, `:`, `*`}
 
 // BasePath the root path, it should:
+//
 // 1. must not be empty;
+//
 // 2. must begin with /
+//
 // 3. must not end with /
+//
 // 4  must not contain one of the basePathNot
 type BasePath string
 
@@ -112,7 +110,7 @@ func Init(engine *gin.Engine, httpPort int, path BasePath, unilogAddr string, cf
 	}
 }
 
-// RegisterGin 初始化(low-level)
+// RegisterGin like Init but it is low-level.
 // logInfoPath 日志路径（包含所有等级的日志）， loginPath 日志页面登录路由地址，tidSearchPath 日志搜索页面地址
 // token 登录授权码， logPaths: 日志与该日志所对应的路由地址
 func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
@@ -131,7 +129,7 @@ func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, toke
 		return err
 	}
 	lc := logClient{
-		logMap:             make(logPushPathMap),
+		logMap:             make(map[string]*os.File),
 		logFileNameMap:     make(map[string]string),
 		logFileNamePushMap: make(map[string]string),
 		token:              tokenSha1,
@@ -175,8 +173,8 @@ func (lc *logClient) logIndex(ctx *gin.Context) {
 	fileName := lc.logFileNameMap[path]
 	logPushPath := lc.logFileNamePushMap[fileName]
 	title := filepath.Base(fileName)
-	r := strings.NewReplacer("{{title}}", title, "{{logPushPath}}", logPushPath)
-	ctx.Writer.WriteString(r.Replace(logHtml))
+	r := strings.NewReplacer("'{{title}}'", title, "'{{logPushPath}}'", logPushPath)
+	r.WriteString(ctx.Writer, logHtml)
 }
 
 // login 登录授权校验.
@@ -200,8 +198,8 @@ func (lc *logClient) login(ctx *gin.Context) {
 		mylog.Ctx(ctx).WithField("remoteAddr", ctx.Request.RemoteAddr).Info("login successfully!")
 		return
 	}
-	r := strings.NewReplacer("'{{jumpPath}}'", jumpPath, "'{{loginPath}}'", lc.loginPath, "{{tokenFailed}}", "true")
-	ctx.Writer.WriteString(r.Replace(loginHtml))
+	r := strings.NewReplacer("'{{jumpPath}}'", jumpPath, "'{{loginPath}}'", lc.loginPath, "'{{tokenFailed}}'", "true")
+	r.WriteString(ctx.Writer, loginHtml)
 	mylog.Ctx(ctx).WithFields("remoteAddr", ctx.Request.RemoteAddr, "token", tokenStr).Warn("login failed!")
 	return
 }
