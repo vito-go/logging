@@ -189,18 +189,18 @@ func (lc *logClient) login(ctx *gin.Context) {
 		ctx.Writer.WriteString(r.Replace(loginHtml))
 		return
 	}
-	tokenStr := ctx.Request.PostFormValue("token")
+	tokenStr := ctx.Request.PostFormValue(cookieKey)
 	jumpPath := ctx.Request.PostFormValue("jumpPath")
 	if token := getSha1Str(tokenStr); token == lc.token {
 		cookiePath := strings.TrimSuffix(ctx.Request.URL.Path, "login")
-		http.SetCookie(ctx.Writer, &http.Cookie{Path: cookiePath, Name: "token", Value: token, Expires: time.Now().Add(time.Hour * 48)})
+		http.SetCookie(ctx.Writer, &http.Cookie{Path: cookiePath, Name: cookieKey, Value: token, Expires: time.Now().Add(time.Hour * 48)})
 		http.Redirect(w, ctx.Request, jumpPath, http.StatusFound)
 		mylog.Ctx(ctx).WithField("remoteAddr", ctx.Request.RemoteAddr).Info("login successfully!")
 		return
 	}
 	r := strings.NewReplacer("'{{jumpPath}}'", jumpPath, "'{{loginPath}}'", lc.loginPath, "'{{tokenFailed}}'", "true")
 	r.WriteString(ctx.Writer, loginHtml)
-	mylog.Ctx(ctx).WithFields("remoteAddr", ctx.Request.RemoteAddr, "token", tokenStr).Warn("login failed!")
+	mylog.Ctx(ctx).WithFields("remoteAddr", ctx.Request.RemoteAddr, cookieKey, tokenStr).Warn("login failed!")
 	return
 }
 
