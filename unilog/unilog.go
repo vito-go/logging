@@ -74,7 +74,7 @@ func start(engine *gin.Engine, rpcServerAddr string, logFunc LogInfoNameFunc) {
 	}
 	mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Info("unilog distributed systems cluster start.")
 	engine.Any(filepath.ToSlash(filepath.Join(_basePath, ":app", "*log")), tidUniAPPLog) // 反向代理
-	engine.GET(_basePath, tidUnilogGet)                                                  // app={app}&log={log} 跳转
+	engine.GET(_basePath, tidUnilogGet)                                                  // tid search界面
 	engine.POST(_basePath, tidUnilogPost)                                                // post 查询tid
 
 	navi := &logNavi{getLogNameByApp: DefaultLogInfoNameFunc}
