@@ -121,7 +121,8 @@
     sse.onmessage = function (event) {
         //可能有问题?? 有的日志如果多行的话
         var tag = document.createElement("span")
-        tag.innerText = event.data.replaceAll("||", "\n")
+        // tag.innerText = event.data.replaceAll("||", "\n")
+        tag.innerHTML = event.data
         colorLogLevel(tag)
         container.appendChild(tag)
         if (isScroll) {

@@ -111,7 +111,7 @@ func Init(engine *gin.Engine, httpPort int, path BasePath, unilogAddr string, cf
 }
 
 // RegisterGin like Init but it is low-level.
-// logInfoPath 日志路径（包含所有等级的日志）， loginPath 日志页面登录路由地址，tidSearchPath 日志搜索页面地址
+// logInfoPath 日志路径（包含所有等级的日志, loginPath 日志页面登录路由地址，tidSearchPath 日志搜索页面地址
 // token 登录授权码， logPaths: 日志与该日志所对应的路由地址
 func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
 	ctx := context.WithValue(context.Background(), "tid", tid.Get())
@@ -218,10 +218,6 @@ func isLogin(r *http.Request, cookieKey string, cookieValue string) bool {
 }
 
 // logPush SSE log日志推送.
-// 默认情况下proxy_max_temp_file_size值为1024MB,
-// 也就是说后端服务器的文件不大于1G都可以缓存到nginx代理硬盘中，如果超过1G，那么文件不缓存，
-// 而是直接中转发送给客户端.如果 proxy_max_temp_file_size 设置为0，表示不使用临时缓存。
-// 否则在SSE技术下客户端(browser)将报错: net::ERR_HTTP2_PROTOCOL_ERROR 200
 func (lc *logClient) logPush(ctx *gin.Context) {
 	w := ctx.Writer
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -267,7 +263,6 @@ func (lc *logClient) logPush(ctx *gin.Context) {
 	for {
 		select {
 		case <-ctx.Writer.CloseNotify(): // write所返回的err有延迟. 用CloseNotify及时的
-			// mylog.Ctx(ctx).Info("browser closed")
 			return
 		default:
 		}
@@ -292,7 +287,8 @@ func (lc *logClient) logPush(ctx *gin.Context) {
 func flushBytes(w gin.ResponseWriter, flusher http.Flusher, b []byte) error {
 
 	var err error
-	var oneSend string
+	// var oneSend string
+	var oSend strings.Builder
 	var count int
 	// 使用bufio.NewScanner 按行解析，如果一行超过65536( 64 * 1024)
 	// 那么scanner.Scan将直接返回false！不再往后解析
@@ -300,18 +296,21 @@ func flushBytes(w gin.ResponseWriter, flusher http.Flusher, b []byte) error {
 	scanner.Buffer(make([]byte, 1<<10), maxScanTokenSize)
 	for scanner.Scan() {
 		line := scanner.Text()
-		oneSend += line + "||"
+		oSend.WriteString(line)
+		oSend.WriteString("<br>")
+		// oneSend += line + "||"
 		if count < oneSendLine {
 			count++
 			continue
 		}
-		_, err = w.WriteString(sseWithData(oneSend))
+		_, err = w.WriteString(sseWithData(oSend.String()))
 		if err != nil {
 			// 应该不需要日志,可能对方关闭了
 			return err
 		}
 		flusher.Flush()
-		oneSend = ""
+		// oneSend = ""
+		oSend.Reset()
 		count = 0
 	}
 	err = scanner.Err()
@@ -320,7 +319,7 @@ func flushBytes(w gin.ResponseWriter, flusher http.Flusher, b []byte) error {
 		return err
 	}
 	if count > 0 {
-		_, err = w.WriteString(sseWithData(oneSend))
+		_, err = w.WriteString(sseWithData(oSend.String()))
 		if err != nil {
 			// 应该不需要日志,可能对方关闭了
 			return err
