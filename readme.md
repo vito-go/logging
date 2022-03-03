@@ -2,8 +2,9 @@
 - ELK日志搜索终结者
 - 无需数据库，支持超大（GB级别）**全链路日志**毫秒级别搜索。
 - 更新log在线查看技术架构,由ajax短轮询升级为SSE推送.
-- 支持跳转日志节点
+- 统一日志管理界面
 - 支持反向代理日志节点
+- 日志全链路搜索支持分布式、支持单机。
 
 ### 项目结构示意图
 ![avatar](images/logging.png)
@@ -80,3 +81,8 @@ go run ./main.go
 > http://127.0.0.1:9899/universe/api/v1/im/unilog/chat/tid-search
 
 ![avatar](images/tid-search.png)
+
+### TODO
+- 自动滚屏日志目前采用SSE技术方案推送服务日志，计划支持websocket
+- 目前仅支持gin框架，计划支持所有的web框架
+- 目前不支持切割后的日志文件的搜索（暂且不建议切割，或者有需要的话日志达到特别大如1GB后再进行考虑切割）
