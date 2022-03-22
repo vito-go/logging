@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/gin-gonic/gin v1.7.7
-	github.com/vito-go/mylog v0.0.0-20220222154426-6e65147b1983
+	github.com/vito-go/mylog v0.0.0-20220321074816-ef818edfa58f
 )
 
 require (
