@@ -165,6 +165,17 @@
         var t = new Date(tidipt.value / 1000000)
         tt.innerText = t.toLocaleString()
         console.log(t.toISOString())
+        if ((("" + tidipt.value).length === 19) && getAppName() !== "") {
+            // 自动触发请求
+            getLogByTid()
+        }
+    }
+
+    function changeLableColor() {
+        const labels = document.getElementsByTagName("label")
+        for (const label of labels) {
+            label.style.color = "black"
+        }
     }
 
     function showAppName(appNames) {
@@ -180,6 +191,13 @@
             inputTag.name = "appName"
             inputTag.type = "radio"
             inputTag.value = appNames[i]
+            inputTag.onchange = function () {
+                if ((inputTag.checked) && (("" + tidipt.value).length === 19)) {
+                    changeLableColor()
+                    label.style.color = "green"
+                    getLogByTid()
+                }
+            }
             label.appendChild(inputTag)
             appNamesTag.appendChild(label)
         }
