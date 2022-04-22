@@ -192,10 +192,12 @@
             inputTag.type = "radio"
             inputTag.value = appNames[i]
             inputTag.onchange = function () {
-                if ((inputTag.checked) && (("" + tidipt.value).length === 19)) {
+                if (inputTag.checked) {
                     changeLableColor()
                     label.style.color = "green"
-                    getLogByTid()
+                    if (("" + tidipt.value).length === 19) {
+                        getLogByTid()
+                    }
                 }
             }
             label.appendChild(inputTag)
