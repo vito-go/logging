@@ -15,10 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/vito-go/mylog"
-
-	"github.com/vito-go/logging/tid"
 )
 
 // logTidLength 限定对进的tid数量.
@@ -92,30 +89,34 @@ func readToLogList(offset int64, reader io.Reader) (n int64) {
 }
 
 // TidSearch 提供一个包含html页面的tid搜索服务.
-func (lc *logClient) TidSearch(ctx *gin.Context) {
-	ctx.Set("tid", tid.Get())
-	method := ctx.Request.Method
+func (lc *logClient) TidSearch(w http.ResponseWriter,r *http.Request) {
+	method := r.Method
 	switch method {
 	case http.MethodGet, http.MethodPost:
 	default:
-		ctx.Writer.WriteHeader(http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	if ctx.Request.Method != "POST" {
-		if lc.token != "" && !isLogin(ctx.Request, cookieKey, lc.token) {
-			r := strings.NewReplacer("'{{jumpPath}}'", lc.tieSearchPath, "'{{loginPath}}'", lc.loginPath)
-			ctx.Writer.WriteString(r.Replace(loginHtml))
+	if r.Method != "POST" {
+		if lc.token != "" && !isLogin(r, cookieKey, lc.token) {
+			replacer := strings.NewReplacer("'{{jumpPath}}'", lc.tieSearchPath, "'{{loginPath}}'", lc.loginPath)
+			w.Write([]byte(replacer.Replace(loginHtml)))
 			return
 		}
-		ctx.Writer.WriteString(strings.ReplaceAll(tidHtml, "{{tieSearchPath}}", lc.tieSearchPath))
+		w.Write([]byte(strings.ReplaceAll(tidHtml, "{{tieSearchPath}}", lc.tieSearchPath)))
 		return
 	}
 
 	// post 请求获取日志
-	tidStr := ctx.PostForm("tid")
+	err:=r.ParseForm()
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	tidStr := r.FormValue("tid")
 	tidInt, err := strconv.ParseInt(tidStr, 10, 64)
 	if err != nil || tidInt <= 0 {
-		ctx.Writer.WriteHeader(http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
@@ -124,7 +125,7 @@ func (lc *logClient) TidSearch(ctx *gin.Context) {
 
 	nd, nodeExist = _logList.Find(tidInt)
 	if !nodeExist {
-		ctx.Writer.WriteString(`<h1>no result</h1>`)
+		w.Write([]byte(`<h1>no result</h1>`))
 		return
 	}
 	var result []string
@@ -132,11 +133,11 @@ func (lc *logClient) TidSearch(ctx *gin.Context) {
 	for _, ab := range abS {
 		bb, err := readByOffsetAB(lc.tidSearchFile, ab.A, ab.B)
 		if err != nil {
-			ctx.Writer.WriteString(fmt.Sprintf("readByOffsetAB tid=%d offset=%+v  error: %s", tidInt, ab, err.Error()))
+			w.Write([]byte(fmt.Sprintf("readByOffsetAB tid=%d offset=%+v  error: %s", tidInt, ab, err.Error())))
 			return
 		}
 		result = append(result, string(bb))
 	}
 	b, _ := json.Marshal(result)
-	ctx.Writer.Write(b)
+	w.Write(b)
 }

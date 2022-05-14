@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/vito-go/mylog"
 )
 
@@ -31,65 +29,77 @@ var DefaultLogInfoNameFunc = func(app string) (logInfo, logErr string) {
 }
 
 // tidUnilogGet 分布式日志搜索路由入口. 打开tid搜索界面或者进行跳转. 与logging滚动查看日志(即 logClient )进行了解藕
-func tidUnilogGet(ctx *gin.Context) {
+func tidUnilogGet(w http.ResponseWriter, r *http.Request) {
 	// 优先判断是否有app 和 log 参数，可以进行跳转
 	b, _ := json.Marshal(appNameList)
 	// 替换符加个单引号防止被格式化
-	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
+	w.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
 	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", _basePath)
-	replacer.WriteString(ctx.Writer, unilogTidHtml)
+	replacer.WriteString(w, unilogTidHtml)
 	return
 }
 
 // tidUnilogPost post 请求获取日志.
-func tidUnilogPost(ctx *gin.Context) {
-	tidStr := ctx.PostForm("tid")
-	appName := ctx.PostForm("appName")
+func tidUnilogPost(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	tidStr := r.FormValue("tid")
+	appName := r.FormValue("appName")
+	ctx := r.Context()
 	tidInt, err := strconv.ParseInt(tidStr, 10, 64)
 	if err != nil || tidInt <= 0 {
-		mylog.Ctx(ctx).WithField("addr", ctx.Request.RemoteAddr).WithField("tid", tidStr).Warnf(
+		mylog.Ctx(ctx).WithField("addr", r.RemoteAddr).WithField("tid", tidStr).Warnf(
 			"查看tid日志失败！tid错误")
-		ctx.Writer.WriteHeader(http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 	host, err := getIpByTidStr(appName, tidStr)
 	if err != nil {
-		ctx.Writer.WriteString(err.Error())
+		w.Write([]byte(err.Error()))
 		return
 	}
 	if host == "" {
-		ctx.Writer.WriteString("未找到对应集群节点")
+		w.Write([]byte("<h1>未找到对应集群节点</h1>"))
 		return
 	}
 	tidURL := fmt.Sprintf("http://%s%s/%s/tid-search", host, _basePath, appName)
 	postForm := url.Values{}
 	postForm.Set("tid", tidStr)
-	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(ctx.Request.RemoteAddr, "搜索日志")
+	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(r.RemoteAddr, "搜索日志")
 	response, err := http.PostForm(tidURL, postForm)
 	if err != nil {
 		mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Error(err)
-		ctx.Writer.WriteString(err.Error())
+		w.Write([]byte(err.Error()))
 		return
 	}
 	defer response.Body.Close()
-	io.Copy(ctx.Writer, response.Body)
+	io.Copy(w, response.Body)
 
 }
 
 // tidUniAPPLog 分布式日志搜索路由入口. 与logging滚动查看日志(即 logClient )进行了解藕
-func tidUniAPPLog(ctx *gin.Context) {
-	app := ctx.Param("app")
+func tidUniAPPLog(w http.ResponseWriter, r *http.Request) {
+	// /_basePath/{app}/{log}
+	appLogs := strings.Split(strings.TrimPrefix(r.URL.Path, _basePath+"/"), "/")
+	if len(appLogs) != 2 {
+		http.NotFound(w, r)
+		return
+	}
+	app := appLogs[0]
 	if host := chooseOneHostByAppName(app); host != "" {
 		// 可以选择redirect 跳转 或者reverse反向代理，未来可以考虑走配置
-		if reverse(ctx.Writer, ctx.Request, host) {
+		if reverse(w, r, host) {
 			return
 		}
 	}
 	b, _ := json.Marshal(appNameList)
 	// 替换符加个单引号防止被格式化
-	ctx.Writer.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
+	w.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
 	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", _basePath)
-	replacer.WriteString(ctx.Writer, unilogTidHtml)
+	replacer.WriteString(w, unilogTidHtml)
 	return
 
 }

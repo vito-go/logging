@@ -13,15 +13,15 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/rpc"
 	"path/filepath"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/vito-go/mylog"
 
 	"github.com/vito-go/logging"
+	"github.com/vito-go/logging/router"
 	"github.com/vito-go/logging/tid"
 	"github.com/vito-go/logging/unilogrpc"
 )
@@ -50,15 +50,15 @@ func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
 var _basePath = "/logging"
 
 // GoStart start the unilog. logFunc 根据app获取info日志和err日志文件名，不应包含路径. 用来做日志导航。
-func GoStart(engine *gin.Engine, rpcServerAddr string, path logging.BasePath, logFunc LogInfoNameFunc, appNames ...string) {
+func GoStart(r router.Router, rpcServerAddr string, path logging.BasePath, logFunc LogInfoNameFunc, appNames ...string) {
 	appNameList = appNames
 	if path != "" {
 		logging.MustCheckBasePath(path)
 		_basePath = string(path)
 	}
-	start(engine, rpcServerAddr, logFunc)
+	start(r, rpcServerAddr, logFunc)
 }
-func start(engine *gin.Engine, rpcServerAddr string, logFunc LogInfoNameFunc) {
+func start(r router.Router, rpcServerAddr string, logFunc LogInfoNameFunc) {
 	ctx := context.WithValue(context.Background(), "tid", tid.Get())
 	listener, err := net.Listen("tcp", rpcServerAddr)
 	if err != nil {
@@ -73,15 +73,15 @@ func start(engine *gin.Engine, rpcServerAddr string, logFunc LogInfoNameFunc) {
 		return
 	}
 	mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Info("unilog distributed systems cluster start.")
-	engine.Any(filepath.ToSlash(filepath.Join(_basePath, ":app", "*log")), tidUniAPPLog) // 反向代理
-	engine.GET(_basePath, tidUnilogGet)                                                  // tid search界面
-	engine.POST(_basePath, tidUnilogPost)                                                // post 查询tid
+	r.Route(router.HttpMethodAny, filepath.ToSlash(_basePath)+"/", tidUniAPPLog) // 反向代理 仅仅支持标准库
+	r.Route(http.MethodGet, _basePath, tidUnilogGet)                             // tid search界面
+	r.Route(http.MethodPost, _basePath, tidUnilogPost)                           // post 查询tid
 
 	navi := &logNavi{getLogNameByApp: DefaultLogInfoNameFunc}
 	if logFunc != nil {
 		navi.getLogNameByApp = logFunc
 	}
-	engine.GET(filepath.ToSlash(filepath.Join(_basePath, "log-navi")), navi.LoggingNavi) // log 导航                                    // post 查询tid
+	r.Route(http.MethodGet, filepath.ToSlash(filepath.Join(_basePath, "log-navi")), navi.LoggingNavi) // log 导航                                    // post 查询tid
 	go func() {
 		for {
 			conn, err := listener.Accept()

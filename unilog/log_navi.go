@@ -3,9 +3,8 @@ package unilog
 import (
 	_ "embed"
 	"html/template"
+	"net/http"
 	"strings"
-
-	"github.com/gin-gonic/gin"
 )
 
 //go:embed log_navi.gohtml
@@ -24,7 +23,7 @@ type logNavi struct {
 }
 
 // LoggingNavi  log导航
-func (l *logNavi) LoggingNavi(ctx *gin.Context) {
+func (l *logNavi) LoggingNavi(w http.ResponseWriter,r *http.Request) {
 	appHostList := GetAllAppHosts()
 	logApps := make([]LogApp, 0, len(appHostList))
 	for _, s := range appHostList {
@@ -45,12 +44,12 @@ func (l *logNavi) LoggingNavi(ctx *gin.Context) {
 	})
 	t, err := tmpl.Parse(helloHtml)
 	if err != nil {
-		ctx.Writer.WriteString(err.Error())
+		w.Write([]byte(err.Error()))
 		return
 	}
-	err = t.Execute(ctx.Writer, logApps)
+	err = t.Execute(w, logApps)
 	if err != nil {
-		ctx.Writer.WriteString(err.Error())
+		w.Write([]byte(err.Error()))
 		return
 	}
 }

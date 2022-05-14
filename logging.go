@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/vito-go/mylog"
 
+	"github.com/vito-go/logging/router"
 	"github.com/vito-go/logging/tid"
 )
 
@@ -86,9 +86,10 @@ func MustCheckBasePath(path BasePath) {
 }
 
 // Init (high-level)
+// r can user router.NewGin or router.NewServeMux as the router.Router.
 // httpPort is the port of the http server listened.
 // unilogAddr can be empty if only used locally.
-func Init(engine *gin.Engine, httpPort int, path BasePath, unilogAddr string, cfg Config) {
+func Init(r router.Router, httpPort int, path BasePath, unilogAddr string, cfg Config) {
 
 	MustCheckBasePath(path)
 
@@ -104,7 +105,7 @@ func Init(engine *gin.Engine, httpPort int, path BasePath, unilogAddr string, cf
 	var logPaths = []LogPath{
 		{FileName: cfg.LogInfoPath, RouterPath: filepath.ToSlash(filepath.Join(basePath, filepath.Base(cfg.LogInfoPath)))},
 		{FileName: cfg.LogErrPath, RouterPath: filepath.ToSlash(filepath.Join(basePath, filepath.Base(cfg.LogErrPath)))}}
-	err = RegisterGin(engine, cfg.LogInfoPath, loginPath, tidSearchPath, cfg.Token, logPaths...)
+	err = RegisterGin(r, cfg.LogInfoPath, loginPath, tidSearchPath, cfg.Token, logPaths...)
 	if err != nil {
 		mylog.Ctx(context.TODO()).Warn(err.Error())
 	}
@@ -113,7 +114,7 @@ func Init(engine *gin.Engine, httpPort int, path BasePath, unilogAddr string, cf
 // RegisterGin like Init but it is low-level.
 // logInfoPath 日志路径（包含所有等级的日志, loginPath 日志页面登录路由地址，tidSearchPath 日志搜索页面地址
 // token 登录授权码， logPaths: 日志与该日志所对应的路由地址
-func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
+func RegisterGin(r router.Router, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
 	ctx := context.WithValue(context.Background(), "tid", tid.Get())
 	// 开启tid搜索引擎服务
 	GoRunTidSearch(logInfoPath)
@@ -137,10 +138,10 @@ func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, toke
 		tieSearchPath:      tidSearchPath,
 		tidSearchFile:      tidSearchF,
 	}
-	engine.GET(loginPath, lc.login)          // 登录
-	engine.POST(loginPath, lc.login)         // 登录
-	engine.GET(tidSearchPath, lc.TidSearch)  // tid搜索 html页面服务
-	engine.POST(tidSearchPath, lc.TidSearch) // tid搜索 html页面服务
+	r.Route(http.MethodGet, loginPath, lc.login)          // 登录
+	r.Route(http.MethodPost, loginPath, lc.login)         // 登录
+	r.Route(http.MethodGet, tidSearchPath, lc.TidSearch)  // tid搜索 html页面服务
+	r.Route(http.MethodPost, tidSearchPath, lc.TidSearch) // tid搜索 html页面服务
 
 	for _, lp := range logPaths {
 		logName, routerPath := lp.FileName, lp.RouterPath
@@ -154,53 +155,53 @@ func RegisterGin(engine *gin.Engine, logInfoPath, loginPath, tidSearchPath, toke
 		lc.logFileNameMap[routerPath] = logName
 		lc.logFileNamePushMap[logName] = pushPath
 
-		engine.GET(routerPath, lc.logIndex)
+		r.Route(http.MethodGet, routerPath, lc.logIndex)
 		mylog.Ctx(ctx).WithFields("method", "GET", "path", routerPath).Info("gin register router")
 
-		engine.GET(pushPath, lc.logPush)
+		r.Route(http.MethodGet, pushPath, lc.logPush)
 		mylog.Ctx(ctx).WithFields("method", "GET", "path", pushPath).Info("gin register router")
 	}
 	return nil
 }
 
-func (lc *logClient) logIndex(ctx *gin.Context) {
-	path := ctx.Request.URL.Path
-	if lc.token != "" && !isLogin(ctx.Request, cookieKey, lc.token) {
-		r := strings.NewReplacer("'{{jumpPath}}'", path, "'{{loginPath}}'", lc.loginPath)
-		ctx.Writer.WriteString(r.Replace(loginHtml))
+func (lc *logClient) logIndex(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	if lc.token != "" && !isLogin(r, cookieKey, lc.token) {
+		replacer := strings.NewReplacer("'{{jumpPath}}'", path, "'{{loginPath}}'", lc.loginPath)
+		w.Write([]byte(replacer.Replace(loginHtml)))
 		return
 	}
 	fileName := lc.logFileNameMap[path]
 	logPushPath := lc.logFileNamePushMap[fileName]
 	title := filepath.Base(fileName)
-	r := strings.NewReplacer("'{{title}}'", title, "'{{logPushPath}}'", logPushPath)
-	r.WriteString(ctx.Writer, logHtml)
+	replacer := strings.NewReplacer("'{{title}}'", title, "'{{logPushPath}}'", logPushPath)
+	replacer.WriteString(w, logHtml)
 }
 
 // login 登录授权校验.
-func (lc *logClient) login(ctx *gin.Context) {
-	w := ctx.Writer
-	if ctx.Request.Method == http.MethodGet {
-		if isLogin(ctx.Request, cookieKey, lc.token) {
-			ctx.Writer.WriteString("<h1>阁下已登录!</h1>")
+func (lc *logClient) login(w http.ResponseWriter, r *http.Request) {
+	ctx := context.WithValue(r.Context(), "tid", tid.Get())
+	if r.Method == http.MethodGet {
+		if isLogin(r, cookieKey, lc.token) {
+			w.Write([]byte("<h1>阁下已登录!</h1>"))
 			return
 		}
 		r := strings.NewReplacer("'{{jumpPath}}'", lc.loginPath, "'{{loginPath}}'", lc.loginPath)
-		ctx.Writer.WriteString(r.Replace(loginHtml))
+		w.Write([]byte(r.Replace(loginHtml)))
 		return
 	}
-	tokenStr := ctx.Request.PostFormValue(cookieKey)
-	jumpPath := ctx.Request.PostFormValue("jumpPath")
+	tokenStr := r.PostFormValue(cookieKey)
+	jumpPath := r.PostFormValue("jumpPath")
 	if token := getSha1Str(tokenStr); token == lc.token {
-		cookiePath := strings.TrimSuffix(ctx.Request.URL.Path, "login")
-		http.SetCookie(ctx.Writer, &http.Cookie{Path: cookiePath, Name: cookieKey, Value: token, Expires: time.Now().Add(time.Hour * 48)})
-		http.Redirect(w, ctx.Request, jumpPath, http.StatusFound)
-		mylog.Ctx(ctx).WithField("remoteAddr", ctx.Request.RemoteAddr).Info("login successfully!")
+		cookiePath := strings.TrimSuffix(r.URL.Path, "login")
+		http.SetCookie(w, &http.Cookie{Path: cookiePath, Name: cookieKey, Value: token, Expires: time.Now().Add(time.Hour * 48)})
+		http.Redirect(w, r, jumpPath, http.StatusFound)
+		mylog.Ctx(ctx).WithField("remoteAddr", r.RemoteAddr).Info("login successfully!")
 		return
 	}
-	r := strings.NewReplacer("'{{jumpPath}}'", jumpPath, "'{{loginPath}}'", lc.loginPath, "'{{tokenFailed}}'", "true")
-	r.WriteString(ctx.Writer, loginHtml)
-	mylog.Ctx(ctx).WithFields("remoteAddr", ctx.Request.RemoteAddr, cookieKey, tokenStr).Warn("login failed!")
+	replacer := strings.NewReplacer("'{{jumpPath}}'", jumpPath, "'{{loginPath}}'", lc.loginPath, "'{{tokenFailed}}'", "true")
+	replacer.WriteString(w, loginHtml)
+	mylog.Ctx(ctx).WithFields("remoteAddr", r.RemoteAddr, cookieKey, tokenStr).Warn("login failed!")
 	return
 }
 
@@ -218,21 +219,18 @@ func isLogin(r *http.Request, cookieKey string, cookieValue string) bool {
 }
 
 // logPush SSE log日志推送.
-func (lc *logClient) logPush(ctx *gin.Context) {
-	w := ctx.Writer
+func (lc *logClient) logPush(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	w.Header().Set("Content-Type", "text/event-stream")
-	if lc.token != "" && !isLogin(ctx.Request, cookieKey, lc.token) {
-		w.WriteString("data: auth failed!\n\n")
+	if lc.token != "" && !isLogin(r, cookieKey, lc.token) {
+		w.Write([]byte("data: auth failed!\n\n"))
 		return
 	}
-	ctx.Set("tid", tid.Get())
-	mylog.Ctx(ctx).WithField("remoteAddr", ctx.Request.RemoteAddr).Info("logging...")
-	path := ctx.Request.URL.Path
+	path := r.URL.Path
 	file := lc.logMap[path]
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		mylog.Ctx(ctx).Warn("streaming unsupported")
-		w.WriteString("streaming unsupported")
+		w.Write([]byte("streaming unsupported"))
 		return
 	}
 	flusher.Flush()
@@ -262,7 +260,7 @@ func (lc *logClient) logPush(ctx *gin.Context) {
 	}
 	for {
 		select {
-		case <-ctx.Writer.CloseNotify(): // write所返回的err有延迟. 用CloseNotify及时的
+		case <-ctx.Done(): // write所返回的err有延迟. 用CloseNotify及时的
 			return
 		default:
 		}
@@ -284,7 +282,7 @@ func (lc *logClient) logPush(ctx *gin.Context) {
 	}
 }
 
-func flushBytes(w gin.ResponseWriter, flusher http.Flusher, b []byte) error {
+func flushBytes(w http.ResponseWriter, flusher http.Flusher, b []byte) error {
 
 	var err error
 	// var oneSend string
@@ -303,7 +301,7 @@ func flushBytes(w gin.ResponseWriter, flusher http.Flusher, b []byte) error {
 			count++
 			continue
 		}
-		_, err = w.WriteString(sseWithData(oSend.String()))
+		_, err = w.Write([]byte(sseWithData(oSend.String())))
 		if err != nil {
 			// 应该不需要日志,可能对方关闭了
 			return err
@@ -319,7 +317,7 @@ func flushBytes(w gin.ResponseWriter, flusher http.Flusher, b []byte) error {
 		return err
 	}
 	if count > 0 {
-		_, err = w.WriteString(sseWithData(oSend.String()))
+		_, err = w.Write([]byte(sseWithData(oSend.String())))
 		if err != nil {
 			// 应该不需要日志,可能对方关闭了
 			return err
