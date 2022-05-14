@@ -108,7 +108,7 @@ func (lc *logClient) TidSearch(w http.ResponseWriter,r *http.Request) {
 	}
 
 	// post 请求获取日志
-	err:=r.ParseForm()
+	err:=r.ParseMultipartForm(2<<20)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return

@@ -39,6 +39,16 @@ func tidUnilogGet(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func tidUnilog(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		tidUnilogGet(w, r)
+		return
+	} else if r.Method == http.MethodPost {
+		tidUnilogPost(w, r)
+		return
+	}
+}
+
 // tidUnilogPost post 请求获取日志.
 func tidUnilogPost(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()

@@ -116,22 +116,25 @@
         return "";
     }
 
-    var sse = new EventSource("'{{logPushPath}}'")
-    // sse.addEventListener("myy",function (e){console.log("-=-----",e)})
-    sse.onmessage = function (event) {
-        //可能有问题?? 有的日志如果多行的话
-        var tag = document.createElement("span")
-        // tag.innerText = event.data.replaceAll("||", "\n")
-        tag.innerHTML = event.data
-        colorLogLevel(tag)
-        container.appendChild(tag)
-        if (isScroll) {
-            scrollToBottom(container)
+    window.onload=function () {
+        var sse = new EventSource("'{{logPushPath}}'")
+        // sse.addEventListener("myy",function (e){console.log("-=-----",e)})
+        sse.onmessage = function (event) {
+            //可能有问题?? 有的日志如果多行的话
+            var tag = document.createElement("span")
+            // tag.innerText = event.data.replaceAll("||", "\n")
+            tag.innerHTML = event.data
+            colorLogLevel(tag)
+            console.log(event.data)
+            container.appendChild(tag)
+            if (isScroll) {
+                scrollToBottom(container)
+            }
         }
-    }
-    sse.onerror = function (event) {
-        console.log(event)
-        sse.close()
+        sse.onerror = function (event) {
+            console.log(event)
+            sse.close()
+        }
     }
 </script>
 </body>

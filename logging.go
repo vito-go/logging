@@ -105,17 +105,16 @@ func Init(r router.Router, httpPort int, path BasePath, unilogAddr string, cfg C
 	var logPaths = []LogPath{
 		{FileName: cfg.LogInfoPath, RouterPath: filepath.ToSlash(filepath.Join(basePath, filepath.Base(cfg.LogInfoPath)))},
 		{FileName: cfg.LogErrPath, RouterPath: filepath.ToSlash(filepath.Join(basePath, filepath.Base(cfg.LogErrPath)))}}
-	err = RegisterGin(r, cfg.LogInfoPath, loginPath, tidSearchPath, cfg.Token, logPaths...)
+	err = RegisterRouter(r, cfg.LogInfoPath, loginPath, tidSearchPath, cfg.Token, logPaths...)
 	if err != nil {
 		mylog.Ctx(context.TODO()).Warn(err.Error())
 	}
 }
 
-// RegisterGin like Init but it is low-level.
+// RegisterRouter like Init but it is low-level.
 // logInfoPath 日志路径（包含所有等级的日志, loginPath 日志页面登录路由地址，tidSearchPath 日志搜索页面地址
 // token 登录授权码， logPaths: 日志与该日志所对应的路由地址
-func RegisterGin(r router.Router, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
-	ctx := context.WithValue(context.Background(), "tid", tid.Get())
+func RegisterRouter(r router.Router, logInfoPath, loginPath, tidSearchPath, token string, logPaths ...LogPath) error {
 	// 开启tid搜索引擎服务
 	GoRunTidSearch(logInfoPath)
 	if len(logPaths) == 0 {
@@ -138,10 +137,8 @@ func RegisterGin(r router.Router, logInfoPath, loginPath, tidSearchPath, token s
 		tieSearchPath:      tidSearchPath,
 		tidSearchFile:      tidSearchF,
 	}
-	r.Route(http.MethodGet, loginPath, lc.login)          // 登录
-	r.Route(http.MethodPost, loginPath, lc.login)         // 登录
-	r.Route(http.MethodGet, tidSearchPath, lc.TidSearch)  // tid搜索 html页面服务
-	r.Route(http.MethodPost, tidSearchPath, lc.TidSearch) // tid搜索 html页面服务
+	r.Route(loginPath, lc.login, http.MethodGet, http.MethodPost)         // 登录
+	r.Route(tidSearchPath, lc.TidSearch, http.MethodGet, http.MethodPost) // tid搜索 html页面服务
 
 	for _, lp := range logPaths {
 		logName, routerPath := lp.FileName, lp.RouterPath
@@ -155,11 +152,8 @@ func RegisterGin(r router.Router, logInfoPath, loginPath, tidSearchPath, token s
 		lc.logFileNameMap[routerPath] = logName
 		lc.logFileNamePushMap[logName] = pushPath
 
-		r.Route(http.MethodGet, routerPath, lc.logIndex)
-		mylog.Ctx(ctx).WithFields("method", "GET", "path", routerPath).Info("gin register router")
-
-		r.Route(http.MethodGet, pushPath, lc.logPush)
-		mylog.Ctx(ctx).WithFields("method", "GET", "path", pushPath).Info("gin register router")
+		r.Route(routerPath, lc.logIndex, http.MethodGet)
+		r.Route(pushPath, lc.logPush, http.MethodGet)
 	}
 	return nil
 }
@@ -261,7 +255,8 @@ func (lc *logClient) logPush(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-ctx.Done(): // write所返回的err有延迟. 用CloseNotify及时的
-			return
+			mylog.Ctx(ctx).Warn(ctx.Err())
+			// return
 		default:
 		}
 		b, err = readAllByOffset(file, offset)
@@ -275,6 +270,7 @@ func (lc *logClient) logPush(w http.ResponseWriter, r *http.Request) {
 		}
 		err = flushBytes(w, flusher, b)
 		if err != nil {
+			mylog.Ctx(ctx).Error(err.Error())
 			return
 		}
 		offset += int64(len(b))
