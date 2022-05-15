@@ -58,6 +58,7 @@ func ipCodeInit() int64 {
 	priIP, err := getPrivateIP()
 	if err != nil {
 		log.Println(err)
+		return 0
 	}
 	var ipCodeStr string
 	if ss := strings.Split(priIP, "."); len(ss) == 4 {

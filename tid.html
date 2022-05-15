@@ -59,7 +59,7 @@
     <input class="tidipt" type="search" name="" id="tidipt" required placeholder="请输入tid" oninput="showTime()">
     <button style="font-size: 22px;border-radius: 5px;cursor: pointer;color: darkcyan;" onclick="getLogByTid()">查询
     </button>
-    <span id="tt" style="color: darkcyan;font-size: 22px;margin-left: 10px;"></span>
+    <span id="tt" style="color: darkcyan;font-size: 20px;margin-left: 10px;display: inline-block;width: 310px"></span>
 </div>
 <p></p>
 <div id="log" style="font-size: 18px" class="log"></div>
@@ -90,6 +90,7 @@
         tag.innerHTML = tag.innerHTML.replace(/\[warning\]/gi, "<span style='color: orange; font-weight: bolder'>[WARN]</span>")
         tag.innerHTML = tag.innerHTML.replace(/\[error\]/gi, "<span style='color: red; font-weight: bolder'>[ERROR]</span>")
     }
+
     function getLogByTid() {
         container.innerHTML = ""
         var tid = tidipt.value
@@ -126,13 +127,18 @@
 
     function alertIsNan() {
         let val = tidipt.value
-        if (val == "") {
+        if (val === "") {
             return
         }
         let result = val.match(new RegExp("^[0-9]+$"));
         if (result == null) {
             alert("tid必须为数字")
             tidipt.value = ""
+            return
+        }
+        if (tidipt.value.length === 19) {
+            // 自动触发请求
+            getLogByTid()
         }
     }
 

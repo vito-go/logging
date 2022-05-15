@@ -9,6 +9,8 @@
 - 2022/05/14: 重磅更新：路由地址添加接口化
     - 新增支持标准库http包（http.ServerMux）、支持gin框架、（可以灵活添加支持各种go的web框架，实现Router接口即可.）
     - 注：使用gin不再对反向代理模式查看日志支持（支持http.ServerMux），未来考虑淘汰此种方式，请使用log-navi导航查看实时滚动日志
+- 请注意: 如果服务端的http server配置了writer_timeout，SSE的日志滚动推送将断开，
+    - 产生错误： net::ERR_INCOMPLETE_CHUNKED_ENCODING 200 (OK)
 
 ### 项目结构示意图
 

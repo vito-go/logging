@@ -23,10 +23,10 @@ import (
 // logSizeShow 只展示最近的日志数量.
 // 暂定4Mb
 const (
-	logSizeShow  = 2 << 20                // 只展示最近2M的内容, 大概就是2000行
-	pushInterval = time.Second            // 推送间歇。
-	waitBrowser  = time.Millisecond * 200 // 留给浏览器处理渲染的时间
-	oneSendLine  = 1000                   // 单次发送1000行(一次发送1行,浏览器不停渲染能卡死.) 每行大约1kb
+	logSizeShow  = 2 << 20                 // 只展示最近2M的内容, 大概就是2000行
+	pushInterval = time.Second             // 推送间歇。
+	waitBrowser  = time.Millisecond * 300 // 留给浏览器处理渲染的时间
+	oneSendLine  = 1000                    // 单次发送1000行(一次发送1行,浏览器不停渲染能卡死.) 每行大约1kb
 	// maxScanTokenSize 设置单行缓冲最大4Mb .
 	maxScanTokenSize = 4 << 20
 )
@@ -256,7 +256,7 @@ func (lc *logClient) logPush(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-ctx.Done(): // write所返回的err有延迟. 用CloseNotify及时的
 			mylog.Ctx(ctx).Warn(ctx.Err())
-			// return
+			return
 		default:
 		}
 		b, err = readAllByOffset(file, offset)
@@ -292,18 +292,16 @@ func flushBytes(w http.ResponseWriter, flusher http.Flusher, b []byte) error {
 		line := scanner.Text()
 		oSend.WriteString(line)
 		oSend.WriteString("<br>")
-		// oneSend += line + "||"
 		if count < oneSendLine {
 			count++
 			continue
 		}
-		_, err = w.Write([]byte(sseWithData(oSend.String())))
+		_, err = w.Write(sseWithData(oSend.String()))
 		if err != nil {
 			// 应该不需要日志,可能对方关闭了
 			return err
 		}
 		flusher.Flush()
-		// oneSend = ""
 		oSend.Reset()
 		count = 0
 	}
@@ -313,7 +311,7 @@ func flushBytes(w http.ResponseWriter, flusher http.Flusher, b []byte) error {
 		return err
 	}
 	if count > 0 {
-		_, err = w.Write([]byte(sseWithData(oSend.String())))
+		_, err = w.Write(sseWithData(oSend.String()))
 		if err != nil {
 			// 应该不需要日志,可能对方关闭了
 			return err

@@ -1,7 +1,8 @@
 package logging
 
 import (
-	"fmt"
+	"bytes"
+	"strconv"
 	"time"
 )
 
@@ -13,28 +14,38 @@ type sseMessage struct {
 	retry time.Duration
 }
 
-func sseWithData(data string) string {
+func sseWithData(data string) []byte {
 	s := sseMessage{data: data}
-	return s.ToString()
+	return s.ToBytes()
 }
 
+func (s *sseMessage) ToBytes() []byte {
+	if s == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	if s.id != "" {
+		buf.WriteString("id:")
+		buf.WriteString(s.id + "\n")
+	}
+	if s.event != "" {
+		buf.WriteString("event:")
+		buf.WriteString(s.event + "\n")
+	}
+	if s.retry != 0 {
+		buf.WriteString("retry:")
+		buf.WriteString(strconv.FormatInt(int64(s.retry/time.Millisecond), 10) + "\n")
+	}
+	if s.data != "" {
+		buf.WriteString("data:")
+		buf.WriteString(s.data)
+		buf.WriteString("\n\n")
+	}
+	return buf.Bytes()
+}
 func (s *sseMessage) ToString() string {
 	if s == nil {
 		return ""
 	}
-	var id, event, retry, data string
-	if s.id != "" {
-		id = fmt.Sprintf("id:%s\n", s.id)
-	}
-	if s.event != "" {
-		event = fmt.Sprintf("event:%s\n", s.event)
-	}
-	if s.retry != 0 {
-		retry = fmt.Sprintf("retry:%d\n", s.retry/time.Millisecond)
-	}
-	if s.data != "" {
-		data = fmt.Sprintf("data:%s\n\n", s.data)
-	}
-	info := id + event + retry + data
-	return info
+	return string(s.ToBytes())
 }
