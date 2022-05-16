@@ -1,11 +1,13 @@
 package unilog
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -51,7 +53,7 @@ func tidUnilog(w http.ResponseWriter, r *http.Request) {
 
 // tidUnilogPost post 请求获取日志.
 func tidUnilogPost(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	err := r.ParseMultipartForm(2 << 20)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
@@ -79,10 +81,26 @@ func tidUnilogPost(w http.ResponseWriter, r *http.Request) {
 	postForm := url.Values{}
 	postForm.Set("tid", tidStr)
 	mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Info(r.RemoteAddr, "搜索日志")
-	response, err := http.PostForm(tidURL, postForm)
+
+	var buf bytes.Buffer
+	wri := multipart.NewWriter(&buf)
+	_ = wri.WriteField("tid", tidStr)
+	_ = wri.Close()
+	request, err := http.NewRequest("POST", tidURL, &buf)
 	if err != nil {
 		mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Error(err)
 		w.Write([]byte(err.Error()))
+		return
+	}
+	request.Header.Set("Content-Type", wri.FormDataContentType())
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		mylog.Ctx(ctx).WithFields("tidURL", tidURL, "postForm", postForm).Error(err)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	if response.StatusCode != 200 {
+		w.Write([]byte("status is not 200" + strconv.FormatInt(int64(response.StatusCode), 10)))
 		return
 	}
 	defer response.Body.Close()

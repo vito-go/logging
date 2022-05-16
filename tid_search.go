@@ -89,7 +89,7 @@ func readToLogList(offset int64, reader io.Reader) (n int64) {
 }
 
 // TidSearch 提供一个包含html页面的tid搜索服务.
-func (lc *logClient) TidSearch(w http.ResponseWriter,r *http.Request) {
+func (lc *logClient) TidSearch(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	switch method {
 	case http.MethodGet, http.MethodPost:
@@ -108,7 +108,7 @@ func (lc *logClient) TidSearch(w http.ResponseWriter,r *http.Request) {
 	}
 
 	// post 请求获取日志
-	err:=r.ParseMultipartForm(2<<20)
+	err := r.ParseMultipartForm(2 << 20)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
