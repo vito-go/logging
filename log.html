@@ -35,11 +35,16 @@
     <div style="position: fixed;top: 91%;left: 10px">
         <button onclick="changeIsScroll()">自动滚屏</button>
         <input type="checkbox" name="" id="cc" onclick="changeIsScroll()" checked>开&nbsp;
-        <button onclick="cls()" style="border-radius: 6px;color: red">清屏</button>
-        <button onclick="containerScroll()" style="border-radius: 6px;color: darkcyan;font-weight: bolder">底部⬇</button>
+        <button onclick="cls()" style="border-radius: 6px;color: red;cursor: pointer">清屏</button>
+        <button onclick="containerScroll()"
+                style="border-radius: 6px;color: darkcyan;font-weight: bolder;cursor: pointer">底部⬇
+        </button>
         背景颜色: <input id="bgcolor" type="color" onchange="changeBackgroundColor()"/>
         文字颜色: <input id="logcolor" type="color" onchange="changeLogColor()" value="#ffffff"/>
         <button onclick="resetColor()" style="border-radius: 6px;">颜色重置</button>
+        关键词过滤: <input id="kwFilter" type="text" onblur="changeKwFilters(this.value)"
+                      style="width:600px;" autocomplete="on"
+                      placeholder="可以输入路由地址或者关键词, 若多个请使用空格, 点击空白处确定"/>
     </div>
 </div>
 <script>
@@ -47,11 +52,30 @@
     var isScroll = true
     var container = document.getElementById("container")
     var cc = document.getElementById("cc")
+    var kwFilters = [];
 
     function changeBackgroundColor() {
         var bgcolor = document.getElementById("bgcolor").value
         console.log(bgcolor)
         container.style.backgroundColor = bgcolor
+    }
+
+    function changeKwFilters(value) {
+        if (value.length === 0) {
+            kwFilters = [];
+            console.log("kwFilters", kwFilters)
+            return
+        }
+        let filters = value.split(" ")
+        kwFilters = [];
+        for (let i = 0; i < filters.length; i++) {
+            let s = filters[i].trim()
+            if (s === "") {
+                continue
+            }
+            kwFilters.push(filters[i])
+        }
+        console.log("kwFilters", kwFilters)
     }
 
     function changeLogColor() {
@@ -115,11 +139,24 @@
         return "";
     }
 
+    function inKwFilters(s) {
+        for (let i = 0; i < kwFilters.length; i++) {
+            if (s.indexOf(kwFilters[i]) !== -1) {
+                return true
+            }
+        }
+        return false
+    }
     window.onload = function () {
         const sse = new EventSource("'{{logPushPath}}'");
         sse.onmessage = function (event) {
             //可能有问题?? 有的日志如果多行的话
             var tag = document.createElement("span")
+            if (kwFilters.length > 0) {
+                if (!inKwFilters(event.data)) {
+                    return
+                }
+            }
             tag.innerHTML = event.data
             colorLogLevel(tag)
             container.appendChild(tag)

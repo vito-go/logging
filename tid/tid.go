@@ -26,7 +26,7 @@ type tide struct {
 }
 
 func newTid() *tide {
-	return &tide{mux: sync.Mutex{}}
+	return &tide{mux: sync.Mutex{}, t: time.Now().UnixNano() / 1e3}
 }
 
 var tid = newTid()
@@ -131,10 +131,8 @@ func (u *tide) get() int64 {
 	defer u.mux.Unlock()
 	// go1.14  time.Now().UnixMicro undefined (type time.Time has no field or method UnixMicro)
 	// t := time.Now().UnixMicro()
-	t := time.Now().UnixNano()/1e3*1e3 + atomic.LoadInt64(&_ipCode)
-	if u.t == t {
-		t++
-	}
-	u.t = t
+	u.t++
+	t := u.t
+	t = u.t*1e3 + atomic.LoadInt64(&_ipCode)
 	return t
 }
