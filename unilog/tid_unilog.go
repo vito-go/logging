@@ -20,8 +20,7 @@ import (
 // appNameList
 var unilogTidHtml string
 
-//  appNameList 未来考虑走配置
-var appNameList []string
+
 
 type LogInfoNameFunc func(app string) (logInfo, logErr string)
 
@@ -33,7 +32,7 @@ var DefaultLogInfoNameFunc = func(app string) (logInfo, logErr string) {
 // tidUnilogGet 分布式日志搜索路由入口. 打开tid搜索界面或者进行跳转. 与logging滚动查看日志(即 logClient )进行了解藕
 func tidUnilogGet(w http.ResponseWriter, r *http.Request) {
 	// 优先判断是否有app 和 log 参数，可以进行跳转
-	b, _ := json.Marshal(appNameList)
+	b, _ := json.Marshal(appHostGlobal.GetAllAppNames())
 	// 替换符加个单引号防止被格式化
 	w.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
 	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", _basePath)
@@ -123,7 +122,7 @@ func tidUniAPPLog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	b, _ := json.Marshal(appNameList)
+	b, _ := json.Marshal(appHostGlobal.GetAllAppNames())
 	// 替换符加个单引号防止被格式化
 	w.Header().Set("Cache-Control", "no-cache") // 必须设置无缓存，不然跳转到以前的ip。
 	replacer := strings.NewReplacer("'{{appNameList}}'", string(b), "'{{BasePath}}'", _basePath)

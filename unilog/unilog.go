@@ -50,8 +50,7 @@ func (s *Server) Register(req *unilogrpc.UnilogRegisterReq) (*int64, error) {
 var _basePath = "/logging"
 
 // GoStart start the unilog. logFunc 根据app获取info日志和err日志文件名，不应包含路径. 用来做日志导航。
-func GoStart(r router.Router, rpcServerAddr string, path logging.BasePath, logFunc LogInfoNameFunc, appNames ...string) {
-	appNameList = appNames
+func GoStart(r router.Router, rpcServerAddr string, path logging.BasePath, logFunc LogInfoNameFunc) {
 	if path != "" {
 		logging.MustCheckBasePath(path)
 		_basePath = string(path)
@@ -73,8 +72,8 @@ func start(r router.Router, rpcServerAddr string, logFunc LogInfoNameFunc) {
 		return
 	}
 	mylog.Ctx(ctx).WithField("unilog-addr", rpcServerAddr).Info("unilog distributed systems cluster start.")
-	r.Route(filepath.ToSlash(_basePath)+"/", tidUniAPPLog, router.HttpMethodAny) // 反向代理 仅仅支持标准库
-	r.Route(_basePath, tidUnilog, http.MethodGet, http.MethodPost)               //  GET tid search界面 post 查询tid
+	// r.Route(filepath.ToSlash(_basePath)+"/", tidUniAPPLog, router.HttpMethodAny) // 反向代理 仅仅支持标准库
+	r.Route(_basePath, tidUnilog, http.MethodGet, http.MethodPost) //  GET tid search界面 post 查询tid
 
 	navi := &logNavi{getLogNameByApp: DefaultLogInfoNameFunc}
 	if logFunc != nil {

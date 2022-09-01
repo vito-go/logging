@@ -56,6 +56,20 @@ func GetHosts(appName string) []string {
 	return ips
 }
 
+// GetAllAppNames 获取所有app的名字，并按名字排序好.
+func (a *appHost) GetAllAppNames() []string {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	var result = make([]string, 0, len(a.data))
+	for app, _ := range a.data {
+		result = append(result, app)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i] < result[j]
+	})
+	return result
+}
+
 type appHosts struct {
 	App   string
 	Hosts []string
